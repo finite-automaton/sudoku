@@ -14,12 +14,12 @@ print()
 
 # Print the first 9x9 sudoku...
 print("First sudoku:")
-print(sudoku[5], "\n")
+print(sudoku[6], "\n")
 
 # ...and its solution
 # TODO: undo commenting
 print("Solution of first sudoku:")
-print(solutions[5])
+print(solutions[6])
 
 """My Code"""
 
@@ -269,7 +269,7 @@ def sudoku_solver(sudoku):
     return solution
 
 
-first_sudoku = sudoku[10]
+first_sudoku = sudoku[5]
 start_time = time.process_time()
 print(sudoku_solver(first_sudoku).final_values)
 end_time = time.process_time()
