@@ -30,7 +30,7 @@ class SudokuState:
         self.parent = parent
         self.possible_values = [[[i for i in range(1, 10)] for _ in range(1, 10)] for _ in range(1, 10)]
 
-### New Methods
+    ### New Methods
 
     def set_final_values(self):
         """Checks each cell to see if it has only one possible value in its domain and sets that"""
@@ -93,8 +93,172 @@ class SudokuState:
                 if value in self.possible_values[block_row][block_col]:
                     self.possible_values[block_row][block_col].remove(value)
 
+    def is_only_possibility_in_row(self, value, row, input_col):
+        """Checks if a possible value is unique among a row"""
+        for col in range(0, 9):
+            if col == input_col:
+                continue
+            if value in self.possible_values[row][col]:
+                return False
 
-### END
+        return True
+
+    def is_only_possibility_in_col(self, value, input_row, col):
+        """Checks if a possible value is unique among a column"""
+        for row in range(0, 9):
+            if row == input_row:
+                continue
+            if value in self.possible_values[row][col]:
+                return False
+
+        return True
+
+    def is_only_possibility_in_block(self, value, row, col):
+        """Checks if a possible value is unique in a 9x9 block"""
+        starting_cell_row = (row // 3) * 3
+        starting_cell_col = (col // 3) * 3
+        for block_row in range(starting_cell_row, starting_cell_row + 3):
+            for block_col in range(starting_cell_col, starting_cell_col + 3):
+                # Ignore starting cell
+                if block_row == row and block_col == col:
+                    continue
+                if value in self.possible_values[block_row][block_col]:
+                    return False
+
+        return True
+
+    def resolve_naked_pairs(self):
+        """Examines cells in rows, columns and blocks for hidden pairs. If a hidden pair is found, removes the
+        values of the hidden pair from the domains of relevant cells"""
+        # Rows first
+        for row in range(0, 9):
+            for col in range(0, 9):
+                # Ignore solved cells and cells with more than 2 values
+                if self.final_values[row][col] != 0 or len(self.possible_values[row][col]) != 2:
+                    continue
+                for next_col in range(col+1, 9):
+                    # Ignore solved cells
+                    if self.final_values[row][next_col] != 0:
+                        continue
+                    if self.possible_values[row][col] == self.possible_values[row][next_col]:
+                        for change_col in range(0, 9):
+                            # Ignore any cells which have the same values (covers triples, quads)
+                            if self.possible_values[row][col] == self.possible_values[row][change_col]:
+                                continue
+                            # Remove the values from all other cells if they are there
+                            for value in self.possible_values[row][col]:
+                                if value in self.possible_values[row][change_col]:
+                                    self.possible_values[row][change_col].remove(value)
+
+        # Then columns
+        for col in range(0, 9):
+            for row in range(0, 9):
+                # Ignore solved cells and cells with more than 2 values
+                if self.final_values[row][col] != 0 or len(self.possible_values[row][col]) != 2:
+                    continue
+                for next_row in range(row+1, 9):
+                    # Ignore solved cells
+                    if self.final_values[next_row][col] != 0:
+                        continue
+                    if self.possible_values[row][col] == self.possible_values[next_row][col]:
+                        for change_row in range(0, 9):
+                            # Ignore any cells which have the same values (covers triples, quads)
+                            if self.possible_values[row][col] == self.possible_values[change_row][col]:
+                                continue
+                            # Remove the values from all other cells if they are there
+                            for value in self.possible_values[row][col]:
+                                if value in self.possible_values[change_row][col]:
+                                    self.possible_values[change_row][col].remove(value)
+
+        # Then Blocks
+        for row in range(0, 9, 3):
+            for col in range(0, 9, 3):
+                for cell_row in range(row, row+2):
+                    for cell_col in range(col, col+3):
+                        if self.final_values[cell_row][cell_col] != 0 or len(self.possible_values[cell_row][cell_col]) != 2:
+                            continue
+                        for next_row in range(row + 1, 9):
+                            # Ignore solved cells
+                            if self.final_values[next_row][col] != 0:
+                                continue
+                            if self.possible_values[row][col] == self.possible_values[next_row][col]:
+                                for change_row in range(0, 9):
+                                    # Ignore any cells which have the same values (covers triples, quads)
+                                    if self.possible_values[row][col] == self.possible_values[change_row][col]:
+                                        continue
+                                    # Remove the values from all other cells if they are there
+                                    for value in self.possible_values[row][col]:
+                                        if value in self.possible_values[change_row][col]:
+                                            self.possible_values[change_row][col].remove(value)
+
+        # for row in range(0, 9):
+        #     for col in range(0, 9):
+        #         # Ignore solved cells and cells with more than 2 values
+        #         if self.final_values[row][col] != 0 or len(self.possible_values[row][col]) != 2:
+        #             continue
+        #         for next_col in range(col+1, 9):
+        #             # Ignore solved cells
+        #             if self.final_values[row][next_col] != 0:
+        #                 continue
+        #             if self.possible_values[row][col] == self.possible_values[row][next_col]:
+        #                 for change_col in range(0, 9):
+        #                     # Ignore any cells which have the same values (covers triples, quads)
+        #                     if self.possible_values[row][col] == self.possible_values[row][change_col]:
+        #                         continue
+        #                     # Remove the values from all other cells if they are there
+        #                     for value in self.possible_values[row][col]:
+        #                         if value in self.possible_values[row][change_col]:
+        #                             self.possible_values[row][change_col].remove(value)
+        # starting_cell_row = (row // 3) * 3
+        # starting_cell_col = (col // 3) * 3
+        # for block_row in range(starting_cell_row, starting_cell_row + 3):
+        #     for block_col in range(starting_cell_col, starting_cell_col + 3):
+        #         # Ignore starting cell
+        #         if block_row == row and block_col == col:
+        #             continue
+        #         if value in self.possible_values[block_row][block_col]:
+        #             return False
+
+
+    def set_value(self, row, col, value):
+        """Returns a new state with this cell set to this value, and the change propagated to other domains"""
+
+        if value not in self.possible_values[row][col]:
+            raise ValueError(f"{value} is not a valid choice for cell {row, col}")
+
+        # create a deep copy: the method returns a new state, does not modify the existing one
+
+        # update this cell
+        self.possible_values[row][col] = [value]
+        self.final_values[row][col] = value
+
+        # now update domains of other cells (possible values)
+        self.update_domains(row, col, value)
+
+    def apply_rules(self):
+        for row in range(0, 9):
+            for col in range(0, 9):
+                # Ignore already solved cells
+                if len(self.possible_values[row][col]) == 0:
+                    continue
+                    # loop every cell and try the rules on it
+                for value in self.possible_values[row][col]:
+                    if self.is_only_possibility_in_row(value, row, col):
+                        self.set_value(row, col, value)
+                        continue
+                    if self.is_only_possibility_in_col(value, row, col):
+                        self.set_value(row, col,value)
+                        continue
+                    if self.is_only_possibility_in_block(value, row, col):
+                        self.set_value(row, col,value)
+                        continue
+        # If the rules have updated the domains so that there is only possible value for anything, set it
+        self.resolve_naked_pairs()
+        self.set_final_values()
+
+
+
+    ### END
 
     def is_goal(self):
         # The board is solved when there are no empty cells (0s)
@@ -132,49 +296,6 @@ class SudokuState:
             r += 1
 
         return singleton_cells
-
-    def set_value(self, row, col, value, parent):
-        """Returns a new state with this cell set to this value, and the change propagated to other domains"""
-
-        if value not in self.possible_values[row][col]:
-            raise ValueError(f"{value} is not a valid choice for cell {row, col}")
-
-        # create a deep copy: the method returns a new state, does not modify the existing one
-        state = copy.deepcopy(self)
-        state.parent = parent
-
-        # update this cell
-        state.possible_values[row][col] = [value]
-        state.final_values[row][col] = value
-
-        # now update all other cells possible values
-        # start with cells in the same row
-        for update_col in range(0, 9):
-            # ignore target cell
-            if update_col == col:
-                continue
-            # remove value
-            if value in state.possible_values[row][update_col]:
-                state.possible_values[row][update_col].remove(value)
-
-        # now update cells in same column
-        for update_row in range(0, 9):
-            # ignore target cell
-            if update_row == row:
-                continue
-            # remove value
-            if value in state.possible_values[update_row][col]:
-                state.possible_values[update_row][col].remove(value)
-
-        # if any other cells with no final value only have 1 possible value, make them final
-        # singleton_cells = state.get_singleton_cells()
-        # while len(singleton_cells) > 0:
-        #     cell = singleton_cells[0]
-        #     row = cell[0]
-        #     col = cell[1]
-        #     state = state.set_value(row, col, state.possible_values[row][col][0], state)
-        #     singleton_cells = state.get_singleton_cells()
-        return state
 
     def get_frequency_of_possible_values(self):
         """
@@ -330,10 +451,17 @@ def sudoku_solver(sudoku):
 
 test_sudoku = SudokuState(sudoku[5])
 test_sudoku.initialise_sudoku_board()
-sud
-print(test_sudoku.possible_values)
+
+test_sudoku.apply_rules()
+test_sudoku.apply_rules()
+test_sudoku.apply_rules()
+test_sudoku.apply_rules()
+test_sudoku.apply_rules()
+test_sudoku.apply_rules()
+test_sudoku.apply_rules()
+
 # test_sudoku.set_final_values()
 # print(test_sudoku.possible_values)
-
 print(test_sudoku.final_values)
-
+for pv_row in test_sudoku.possible_values:
+    print(pv_row)
