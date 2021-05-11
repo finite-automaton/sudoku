@@ -137,6 +137,44 @@ class SudokuState:
 
         return state
 
+    def get_frequency_of_possible_values(self):
+        """
+        Returns a list of the least to most common outstanding possible values
+        The frequency is the first item in the returned tuple, for faster sorting.
+        :return:
+        """
+        total_possible_values = []
+
+        # Create a raw, unsorted list of all total occurences of possible values
+        for row in self.possible_values:
+            for col in row:
+                # Ignore singleton values
+                if len(col) == 1:
+                    continue
+                for value in col:
+                    total_possible_values.append(value)
+
+        # Create a dictionary which records the number of occurences of each possible value
+        freq_dict = {}
+        for value in total_possible_values:
+            if value in freq_dict:
+                freq_dict[value] += 1
+            else:
+                freq_dict[value] = 1
+
+        freq_list = []
+        for key, value in freq_dict.items():
+            temp = (value, key)
+            freq_list.append(temp)
+
+        freq_list = sorted(freq_list)
+
+        sorted_values = []
+
+        for (value, key) in freq_list:
+            sorted_values.append(key)
+
+        return sorted_values
 
 def pick_next_cell(partial_state):
     """
