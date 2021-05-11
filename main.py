@@ -1,6 +1,7 @@
 import copy
 import numpy as np
 import random
+import time
 
 # Load sudokus
 sudoku = np.load("data/hard_puzzle.npy")
@@ -13,12 +14,12 @@ print()
 
 # Print the first 9x9 sudoku...
 print("First sudoku:")
-print(sudoku[0], "\n")
+print(sudoku[5], "\n")
 
 # ...and its solution
 # TODO: undo commenting
-# print("Solution of first sudoku:")
-# print(solutions[0])
+print("Solution of first sudoku:")
+print(solutions[5])
 
 """My Code"""
 
@@ -97,6 +98,17 @@ class SudokuState:
             # remove value
             if value in state.possible_values[update_row][col]:
                 state.possible_values[update_row][col].remove(value)
+
+        # now update cells in the same 9 x 9 block
+        starting_cell_row = (row // 3) * 3
+        starting_cell_col = (col // 3) * 3
+        for block_row in range(starting_cell_row, starting_cell_row + 3):
+            for block_col in range(starting_cell_col, starting_cell_col + 3):
+                # Ignore starting cell
+                if block_row == row and block_col == col:
+                    continue
+                if value in state.possible_values[block_row][block_col]:
+                    state.possible_values[block_row][block_col].remove(value)
 
         # if any other cells with no final value only have 1 possible value, make them final
         singleton_cells = state.get_singleton_cells()
@@ -198,10 +210,12 @@ def sudoku_solver(sudoku):
     return solution
 
 
-first_sudoku = sudoku[0]
-first_solution = SudokuState(solutions[0])
+first_sudoku = sudoku[10]
+start_time = time.process_time()
 print(sudoku_solver(first_sudoku).final_values)
-print(first_solution)
+end_time = time.process_time()
+print("This sudoku took", end_time-start_time, "seconds to solve.\n")
+
 # print(first_sudoku.possible_values)
 # print(first_sudoku.is_goal())
 # print(first_solution.is_goal())
