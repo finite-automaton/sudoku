@@ -140,11 +140,12 @@ class SudokuState:
 
 def pick_next_cell(partial_state):
     """
-    Chooses which cell to try, currently random
+    Chooses which cell to try, chooses the cell with the least number of possible values
     :param partial_state:
     :return:
     """
     # TODO: Tidy this up!
+    # Get a list of all empty cells
     empty_cells = []
     r = 0
     c = 0
@@ -156,7 +157,19 @@ def pick_next_cell(partial_state):
         c = 0
         r += 1
 
-    cell = random.choice(empty_cells)
+    # Create a list of empty cells with number of possible values
+    ordered_empty_cells = []
+    for cell in empty_cells:
+        pos_vals = partial_state.get_possible_values(cell[0], cell[1])
+        if len(ordered_empty_cells) == 0:
+            ordered_empty_cells.append((cell, pos_vals))
+        if pos_vals <= ordered_empty_cells[0][1]:
+            ordered_empty_cells.insert(0, (cell, pos_vals))
+        else:
+            ordered_empty_cells.append((cell, pos_vals))
+
+    cell = ordered_empty_cells[0][0]
+
     return cell
 
 
@@ -170,8 +183,16 @@ def order_values(partial_state, row, col):
     :return:
     """
     values = partial_state.get_possible_values(row, col)
-    random.shuffle(values)
-    return values
+    value_frequencies = partial_state.get_frequency_of_possible_values()
+    final_values = value_frequencies.copy()
+    print(value_frequencies)
+    for value in value_frequencies:
+        if value not in values:
+            final_values.remove(value)
+    print(values)
+    print(final_values)
+
+    return final_values
 
 def depth_first_search(partial_state):
 
