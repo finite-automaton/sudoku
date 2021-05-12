@@ -173,23 +173,29 @@ class SudokuState:
         # Then Blocks
         for row in range(0, 9, 3):
             for col in range(0, 9, 3):
-                for cell_row in range(row, row+2):
+                for cell_row in range(row, row+3):
                     for cell_col in range(col, col+3):
                         if self.final_values[cell_row][cell_col] != 0 or len(self.possible_values[cell_row][cell_col]) != 2:
                             continue
-                        for next_row in range(row + 1, 9):
-                            # Ignore solved cells
-                            if self.final_values[next_row][col] != 0:
-                                continue
-                            if self.possible_values[row][col] == self.possible_values[next_row][col]:
-                                for change_row in range(0, 9):
-                                    # Ignore any cells which have the same values (covers triples, quads)
-                                    if self.possible_values[row][col] == self.possible_values[change_row][col]:
-                                        continue
-                                    # Remove the values from all other cells if they are there
-                                    for value in self.possible_values[row][col]:
-                                        if value in self.possible_values[change_row][col]:
-                                            self.possible_values[change_row][col].remove(value)
+                        for next_row in range(row, row+3):
+                            for next_col in range(col, col+3):
+                                # Ignore solved cells and cells that have too many possible values
+                                if self.final_values[next_row][col] != 0 or len(self.possible_values[cell_row][cell_col]) != 2:
+                                    continue
+                                # Ignore the cell we are comparing
+                                if cell_row == next_row and cell_col == next_col:
+                                    continue
+
+                                if self.possible_values[cell_row][cell_col] == self.possible_values[next_row][next_col]:
+                                    for change_row in range(row, row+3):
+                                        for change_col in range(col, col+3):
+                                            # Ignore the pairs
+                                            if (change_row == cell_row and change_col == cell_col) or (change_row == next_row and change_col == next_col):
+                                                continue
+                                            # Otherwise, remove those possible values from cells if they are there
+                                            for value in self.possible_values[cell_row][cell_col]:
+                                                if value in self.possible_values[change_row][change_col]:
+                                                    self.possible_values[change_row][change_col].remove(value)
 
         # for row in range(0, 9):
         #     for col in range(0, 9):
@@ -247,10 +253,10 @@ class SudokuState:
                         self.set_value(row, col, value)
                         continue
                     if self.is_only_possibility_in_col(value, row, col):
-                        self.set_value(row, col,value)
+                        self.set_value(row, col, value)
                         continue
                     if self.is_only_possibility_in_block(value, row, col):
-                        self.set_value(row, col,value)
+                        self.set_value(row, col, value)
                         continue
         # If the rules have updated the domains so that there is only possible value for anything, set it
         self.resolve_naked_pairs()
@@ -459,6 +465,7 @@ test_sudoku.apply_rules()
 test_sudoku.apply_rules()
 test_sudoku.apply_rules()
 test_sudoku.apply_rules()
+
 
 # test_sudoku.set_final_values()
 # print(test_sudoku.possible_values)
