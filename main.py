@@ -4,21 +4,11 @@ import time
 
 # Load sudokus
 sudoku = np.load("data/hard_puzzle.npy")
-print("hard_puzzle.npy has been loaded into the variable sudoku")
+print("medium_puzzle.npy has been loaded into the variable sudoku")
 print(f"sudoku.shape: {sudoku.shape}, sudoku[0].shape: {sudoku[0].shape}, sudoku.dtype: {sudoku.dtype}")
 
 # Load solutions for demonstration
 solutions = np.load("data/hard_solution.npy")
-print()
-
-# Print the first 9x9 sudoku...
-print("First sudoku:")
-print(sudoku[10], "\n")
-
-# ...and its solution
-# TODO: undo commenting
-print("Solution of first sudoku:")
-print(solutions[10])
 
 """My Code"""
 
@@ -127,14 +117,14 @@ class SudokuState:
 
         return True
 
-    def resolve_naked_pairs(self):
+    def resolve_naked_x(self, x):
         """Examines cells in rows, columns and blocks for hidden pairs. If a hidden pair is found, removes the
         values of the hidden pair from the domains of relevant cells"""
         # Rows first
         for row in range(0, 9):
             for col in range(0, 9):
                 # Ignore solved cells and cells with more than 2 values
-                if self.final_values[row][col] != 0 or len(self.possible_values[row][col]) != 2:
+                if self.final_values[row][col] != 0 or len(self.possible_values[row][col]) != x:
                     continue
                 for next_col in range(col + 1, 9):
                     # Ignore solved cells
@@ -154,7 +144,7 @@ class SudokuState:
         for col in range(0, 9):
             for row in range(0, 9):
                 # Ignore solved cells and cells with more than 2 values
-                if self.final_values[row][col] != 0 or len(self.possible_values[row][col]) != 2:
+                if self.final_values[row][col] != 0 or len(self.possible_values[row][col]) != x:
                     continue
                 for next_row in range(row + 1, 9):
                     # Ignore solved cells
@@ -176,7 +166,7 @@ class SudokuState:
                 for cell_row in range(row, row + 3):
                     for cell_col in range(col, col + 3):
                         if self.final_values[cell_row][cell_col] != 0 or len(
-                                self.possible_values[cell_row][cell_col]) != 2:
+                                self.possible_values[cell_row][cell_col]) != x:
                             continue
                         for next_row in range(row, row + 3):
                             for next_col in range(col, col + 3):
@@ -218,7 +208,7 @@ class SudokuState:
                         self.set_value(row, col, value)
                         continue
         # If the rules have updated the domains so that there is only possible value for anything, set it
-        self.resolve_naked_pairs()
+        self.resolve_naked_x(2)
         self.set_final_values()
 
     def is_goal(self):
@@ -331,6 +321,7 @@ def depth_first_search(partial_state):
     start_state = copy.deepcopy(partial_state)
     next_state = copy.deepcopy(partial_state)
     next_state.apply_rules()
+
     while not np.array_equal(next_state.final_values, start_state.final_values):
         start_state = copy.deepcopy(next_state)
         next_state.apply_rules()
@@ -345,7 +336,7 @@ def depth_first_search(partial_state):
     row = cell[0]
     col = cell[1]
     values = order_values(next_state, row, col)
-    #values = next_state.possible_values[row][col]
+    # values = next_state.possible_values[row][col]
 
     for value in values:
 
@@ -376,7 +367,7 @@ def sudoku_solver(sudoku):
             It contains the solution, if there is one. If there is no solution, all array entries should be -1.
     """
 
-    start_time = time.process_time()
+
     partial_state = SudokuState(sudoku)
     partial_state.initialise_sudoku_board()
 
@@ -386,8 +377,7 @@ def sudoku_solver(sudoku):
     solution = depth_first_search(partial_state)
 
     # TODO: replace with all -1s sudoku for fail state
-    end_time = time.process_time()
-    print("This sudoku took", end_time - start_time, "seconds to solve.\n")
+
     return solution.final_values
 
 
@@ -396,10 +386,13 @@ def test_sudoku(number):
     start_time = time.process_time()
     result = sudoku_solver(sudoku[number])
     end_time = time.process_time()
-    if result == solutions[number]:
-        print("Sudoku: ", number, " took ", end_time - start_time, " seconds to solve.\n")
+    if np.array_equal(result, solutions[number]):
+        print("Sudoku: ", number, " took ", end_time - start_time, " seconds to solve.")
     else:
         print("Sudoku: ", number, " yielded a wrong result")
 
-for num in range(2,13):
+for num in range(2,12):
     test_sudoku(num)
+
+# for num in range(0, 4):
+#     test_sudoku(num)
