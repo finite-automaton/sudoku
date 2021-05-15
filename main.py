@@ -28,6 +28,342 @@ def ones_counter():
 
 
 ones_lookup = ones_counter()
+final_possible_values = np.array([1, 2, 4, 8, 16, 32, 64, 128, 256])
+encoding = [511, 1, 2, 4, 8, 16, 32, 64, 128, 256]
+
+
+def encode_sudoku(grid):
+    """Takes an nparray as a sudoku grid and returns a grid with values encoded as binary equivalents"""
+    encoded_grid = np.ndarray(shape=(9, 9), dtype=np.int16)  # larger data type is needed for bitwise operations
+    for row in range(0, 9):
+        for col in range(0, 9):
+            encoded_grid[row][col] = encoding[grid[row][col]]
+    return encoded_grid
+
+
+def decode(value):
+    """Takes a binary encoded value and returns the decoded value"""
+
+    if value == 0:
+        return 0
+    elif value == 1:
+        return 1
+    elif value == 2:
+        return 2
+    elif value == 4:
+        return 3
+    elif value == 8:
+        return 4
+    elif value == 16:
+        return 5
+    elif value == 32:
+        return 6
+    elif value == 64:
+        return 7
+    elif value == 128:
+        return 8
+    elif value == 256:
+        return 9
+    else:
+        return 0
+
+
+def decode_sudoku(grid):
+    """Takes an nparray as a sudoku grid with encoded values and returns a grid with values decoded as decimals"""
+    decoded_grid = np.ndarray(shape=(9, 9), dtype=np.int8)
+    for row in range(0, 9):
+        for col in range(0, 9):
+            decoded_grid[row][col] = decode(grid[row][col])
+    return decoded_grid
+
+
+def initialise_sudoku_grid(grid):
+    # First encode the final values into binary representations
+    encoded_grid = encode_sudoku(grid)
+
+    # Next set final values when there is a final value already
+    for row in range(0, 9):
+        for col in range(0, 9):
+            value = encoded_grid[row][col]
+            if value in final_possible_values:
+                set_value(grid, row, col)
+    return encoded_grid
+
+def set_value(grid, row, col):
+    """ Given a cell, removes the value of this cell from the possible values of other cells
+        in the same row, column and block. Works when the 'set_value' cell has only 1 value!!"""
+    # TODO: should this actually set the value too?
+    # This won't work anymore!
+    # Throw error if trying to set a value that is not possible
+    # if value not in self.possible_values[row][col]:
+    #     for x in self.possible_values:
+    #         print(x)
+    #     raise ValueError(f"{value} is not a valid choice for cell {row, col}")
+
+    # Reduce the possible value to the final value for the target cell
+    # Set the final value
+
+    # remove the value from all other relevant cell's possible values
+    # start with cells in the same row
+
+    for update_col in range(0, 9):
+        # ignore target cell
+        if update_col == col:
+            continue
+        # if the value is not a possible value of the cell, then an AND will yield 0, and we can ignore it
+        if grid[row][update_col] & grid[row][col] == 0:
+            continue
+        # otherwise, the value is in it and can be removed with a bitwise XOR
+        grid[row][update_col] = grid[row][update_col] ^ grid[row][col]
+
+    # now update cells in same column
+    for update_row in range(0, 9):
+        # ignore starting cell
+        if update_row == row:
+            continue
+        # if the value is not a possible value of the cell, then an AND will yield 0, and we can ignore it
+        if grid[update_row][col] & grid[row][col] == 0:
+            continue
+        # remove value with a bitwise XOR
+        grid[update_row][col] = grid[update_row][col] ^ grid[row][col]
+
+    # now update cells in the same 9 x 9 block
+    starting_cell_row = (row // 3) * 3
+    starting_cell_col = (col // 3) * 3
+    for block_row in range(starting_cell_row, starting_cell_row + 3):
+        for block_col in range(starting_cell_col, starting_cell_col + 3):
+            # Ignore the updated cell
+            if block_row == row and block_col == col:
+                continue
+
+            # if the value is not a possible value of the cell, then an AND will yield 0, and we can ignore it
+            if grid[block_row][block_col] & grid[row][col] == 0:
+                continue
+            grid[block_row][block_col] = grid[block_row][block_col] ^ grid[row][col]
+
+
+def set_final_values(grid):
+    """ Sets any value that is final"""
+    for row in range(0, 9):
+        for col in range(0, 9):
+            if grid[row][col] in final_possible_values:
+                set_value(grid, row, col)
+
+
+def is_only_possibility_in_row(grid, row):
+    """Sets possible value if unique among a row"""
+    # possible value in the row
+    for col in range(0, 9):
+        # If this is already a final value, skip
+        if grid[row][col] in final_possible_values:
+            continue
+        # TODO: Would it be faster to find the way to reduce this with an and? So its only checking actual possible values
+        for value in final_possible_values:
+            is_only_possible_value = True
+            # If not a possible value for this cell, move on to next possible value
+            if grid[row][col] & value == 0:
+                continue
+
+            for other_col in range(0, 9):
+                # don't check against self
+                if col == other_col:
+                    continue
+                # If the value is possible for another cell, then it isn't the only possible value
+                if grid[row][other_col] & value != 0:
+                    is_only_possible_value = False
+                    break
+
+            if is_only_possible_value:
+                # set the value
+                grid[row][col] = value
+                set_value(grid, row, col)
+                # break out of loop
+                break
+
+
+def is_only_possibility_in_col(grid, col):
+        """Sets possible value if unique among a column"""
+        """Sets possible value if unique among a row"""
+        # possible value in the row
+        for row in range(0, 9):
+            # TODO: Would it be faster to find the way to reduce this with an and? So its only checking actual possible values
+            # If this is already a final value, skip
+            if grid[row][col] in final_possible_values:
+                continue
+            for value in final_possible_values:
+                is_only_possible_value = True
+                # If not a possible value for this cell, move on to next possible value
+                if grid[row][col] & value == 0:
+                    continue
+
+                for other_row in range(0, 9):
+                    # don't check against self
+                    if row == other_row:
+                        continue
+                    # If the value is possible for another cell, then it isn't the only possible value
+                    if grid[other_row][col] & value != 0:
+                        is_only_possible_value = False
+                        break
+
+                if is_only_possible_value:
+                    # set the value
+                    grid[row][col] = value
+                    set_value(grid, row, col)
+                    # break out of loop
+                    break
+
+
+def is_only_possibility_in_block(grid, starting_cell_row, starting_cell_col):
+
+        # possible value in the row
+        """Checks if a possible value is unique in a 9x9 block"""
+        # starting_cell_row = (row // 3) * 3
+        # starting_cell_col = (col // 3) * 3
+        for block_row in range(starting_cell_row, starting_cell_row + 3):
+            for block_col in range(starting_cell_col, starting_cell_col + 3):
+                # If this is already a final value, skip
+                if grid[block_row][block_col] in final_possible_values:
+                    continue
+                for value in final_possible_values:
+                    is_only_possible_value = True
+                    # If not a possible value for this cell, move on to next possible value
+                    if grid[block_row][block_col] & value == 0:
+                        continue
+
+                    for other_row in range(starting_cell_row, starting_cell_row + 3):
+                        for other_col in range(starting_cell_col, starting_cell_col + 3):
+                            # don't check against self
+                            if block_row == other_row and block_col == other_col:
+                                continue
+                            # If the value is possible for another cell, then it isn't the only possible value
+                            if grid[other_row][other_col] & value != 0:
+                                is_only_possible_value = False
+                                break
+                        else:
+                            continue
+                        break
+
+                    if is_only_possible_value:
+                        # set the value
+                        grid[block_row][block_col] = value
+                        set_value(grid, block_row, block_col)
+                        # break out of loop
+                        break
+
+
+def resolve_naked_pair(grid):
+        """Examines cells in rows, columns and blocks for hidden pairs. If a hidden pair is found, removes the
+        values of the hidden pair from the domains of relevant cells"""
+        # Rows first
+        for row in range(0, 9):
+            for col in range(0, 9):
+                # Ignore solved cells and cells with more than 2 values
+                if grid[row][col] in final_possible_values or ones_lookup[grid[row][col]] != 2:
+                    continue
+                for next_col in range(col + 1, 9):
+                    # Ignore solved cells and cells with more than x values
+                    if grid[row][next_col] in final_possible_values or ones_lookup[grid[row][next_col]] != 2:
+                        continue
+                    if grid[row][col] == grid[row][next_col]:
+                        for change_col in range(0, 9):
+                            # Ignore any cells which have the same values
+                            if grid[row][col] == grid[row][change_col]:
+                                continue
+                            # Remove the values from all other cells if they are there
+                            if grid[row][col] & grid[row][change_col] == grid[row][col]:
+                                grid[row][change_col] = grid[row][col] ^ grid[row][change_col]
+
+        # Then columns
+        for col in range(0, 9):
+            for row in range(0, 9):
+                # Ignore solved cells and cells with more than 2 values
+                if grid[row][col] in final_possible_values or ones_lookup[grid[row][col]] != 2:
+                    continue
+                for next_row in range(row + 1, 9):
+                    # Ignore solved cells and cells with more than x values
+                    if grid[next_row][col] in final_possible_values or ones_lookup[grid[next_row][col]] != 2:
+                        continue
+                    if grid[row][col] == grid[next_row][col]:
+                        for change_row in range(0, 9):
+                            # Ignore any cells which have the same values
+                            if grid[row][col] == grid[change_row][col]:
+                                continue
+                            # Remove the values from all other cells if they are there
+                            if grid[row][col] & grid[change_row][col] == grid[row][col]:
+                                grid[change_row][col] = grid[row][col] ^ grid[change_row][col]
+
+        # Then Blocks
+        for row in range(0, 9, 3):
+            for col in range(0, 9, 3):
+                for cell_row in range(row, row + 3):
+                    for cell_col in range(col, col + 3):
+                        if grid[cell_row][cell_col] in final_possible_values or \
+                                ones_lookup[grid[cell_row][cell_col]] != 2:
+                            continue
+                        for next_row in range(row, row + 3):
+                            for next_col in range(col, col + 3):
+                                # Ignore solved cells and cells that have too many possible values
+                                if grid[next_row][col] in final_possible_values or \
+                                        ones_lookup[grid[cell_row][cell_col]] != 2:
+                                    continue
+                                # Ignore the cell we are comparing
+                                if cell_row == next_row and cell_col == next_col:
+                                    continue
+
+                                if grid[cell_row][cell_col] == grid[next_row][next_col]:
+                                    for change_row in range(row, row + 3):
+                                        for change_col in range(col, col + 3):
+                                            # Ignore the pairs
+                                            if (change_row == cell_row and change_col == cell_col) or\
+                                                    (change_row == next_row and change_col == next_col):
+                                                continue
+                                            # Otherwise, remove those possible values from cells if they are there
+                                            if grid[cell_row][cell_col] & grid[change_row][change_col] == \
+                                                    grid[cell_row][cell_col]:
+                                                grid[change_row][change_col] = grid[cell_row][cell_col] ^\
+                                                                               grid[change_row][change_col]
+
+
+def apply_rules(grid):
+
+    for row in range(0, 9):
+        is_only_possibility_in_row(grid, row)
+    for col in range(0, 9):
+        is_only_possibility_in_col(grid, col)
+    for starting_row in range(0, 9, 3):
+        for starting_col in range(0, 9, 3):
+            is_only_possibility_in_block(grid, starting_row, starting_col)
+
+    resolve_naked_pair(grid)
+    # If the rules have updated the domains so that there is only possible value for anything, set it
+    set_final_values(grid)
+    return grid
+
+
+def is_goal(grid):
+    # The board is solved when there are no empty cells (0s)
+    for row in range(0, 9):
+        for col in range(0, 9):
+            if grid[row][col] not in final_possible_values:
+                return False
+    return True
+
+
+def is_invalid(grid):
+    # TODO: Add check for multiple value in row, col, block
+    # This state is invalid if any cell on the board has no possible values
+    for row in range(0, 9):
+        for col in range(0, 9):
+            if grid[row][col] == 0:
+                return True
+    return False
+
+
+def get_first_unsolved_cell(grid):
+    for row in range(0, 9):
+        for col in range(0, 9):
+            if grid[row][col] not in final_possible_values:
+                return (row, col)
 
 
 class SudokuState:
@@ -39,353 +375,6 @@ class SudokuState:
             self.final_values = initial_values
         else:
             self.initial_values = initial_values
-            self.final_values = np.ndarray(shape=(9, 9),
-                                           dtype=np.int16)  # larger data type is needed for bitwise operations
-
-        # self.possible_values = np.full((9, 9), 511)  # 511 is binary representation of all values
-        """returns numpy array of possible 'single' values if a posisble value cell contains
-        one of these values then it is the only possible value for that cell"""
-        self.final_possible_values = np.array([1, 2, 4, 8, 16, 32, 64, 128, 256])
-        self.encoding = [511, 1, 2, 4, 8, 16, 32, 64, 128, 256]
-
-    def encode_sudoku(self):
-
-        for row in range(0, 9):
-            for col in range(0, 9):
-                self.final_values[row][col] = self.encoding[self.initial_values[row][col]]
-
-    def decode_sudoku(self):
-        if self.not_valid:
-            return
-        for row in range(0, 9):
-            for col in range(0, 9):
-                self.final_values[row][col] = self.decode(self.final_values[row][col])
-
-        # if value == 0:
-        #     return 511  # This is binary 111111111 and reflects all possible options
-        # if value == 1:
-        #     return 1
-        # if value == 2:
-        #     return 2
-        # if value == 3:
-        #     return 4
-        # if value == 4:
-        #     return 8
-        # if value == 5:
-        #     return 16
-        # if value == 6:
-        #     return 32
-        # if value == 7:
-        #     return 64
-        # if value == 8:
-        #     return 128
-        # if value == 9:
-        #     return 256
-
-    def decode(self, value):
-
-        if value == 0:
-            return 0
-        elif value == 1:
-            return 1
-        elif value == 2:
-            return 2
-        elif value == 4:
-            return 3
-        elif value == 8:
-            return 4
-        elif value == 16:
-            return 5
-        elif value == 32:
-            return 6
-        elif value == 64:
-            return 7
-        elif value == 128:
-            return 8
-        elif value == 256:
-            return 9
-        else:
-            return 0
-
-    def initialise_sudoku_board(self):
-
-        # First encode the final values into binary representations
-        self.encode_sudoku()
-
-        # Next set final values when there is a final value already
-        for row in range(0, 9):
-            for col in range(0, 9):
-                value = self.final_values[row][col]
-                if value in self.final_possible_values:
-                    self.set_value(row, col)
-
-    def set_value(self, row, col):
-        """ Given a cell, removes the value of this cell from the possible values of other cells
-        in the same row, column and block. Works when the 'set_value' cell has only 1 value!!"""
-
-        # This won't work anymore!
-        # Throw error if trying to set a value that is not possible
-        # if value not in self.possible_values[row][col]:
-        #     for x in self.possible_values:
-        #         print(x)
-        #     raise ValueError(f"{value} is not a valid choice for cell {row, col}")
-
-        # Reduce the possible value to the final value for the target cell
-        # Set the final value
-
-        # remove the value from all other relevant cell's possible values
-        # start with cells in the same row
-
-        for update_col in range(0, 9):
-            # ignore target cell
-            if update_col == col:
-                continue
-            # if the value is not a possible value of the cell, then an AND will yield 0, and we can ignore it
-            if self.final_values[row][update_col] & self.final_values[row][col] == 0:
-                continue
-            # otherwise, the value is in it and can be removed with a bitwise XOR
-            self.final_values[row][update_col] = self.final_values[row][update_col] ^ self.final_values[row][col]
-
-        # now update cells in same column
-        for update_row in range(0, 9):
-            # ignore starting cell
-            if update_row == row:
-                continue
-            # if the value is not a possible value of the cell, then an AND will yield 0, and we can ignore it
-            if self.final_values[update_row][col] & self.final_values[row][col] == 0:
-                continue
-            # remove value with a bitwise XOR
-            self.final_values[update_row][col] = self.final_values[update_row][col] ^ self.final_values[row][col]
-
-        # now update cells in the same 9 x 9 block
-        starting_cell_row = (row // 3) * 3
-        starting_cell_col = (col // 3) * 3
-        for block_row in range(starting_cell_row, starting_cell_row + 3):
-            for block_col in range(starting_cell_col, starting_cell_col + 3):
-                # Ignore the updated cell
-                if block_row == row and block_col == col:
-                    continue
-
-                # if the value is not a possible value of the cell, then an AND will yield 0, and we can ignore it
-                if self.final_values[block_row][block_col] & self.final_values[row][col] == 0:
-                    continue
-                self.final_values[block_row][block_col] = self.final_values[block_row][block_col] ^ \
-                                                          self.final_values[row][col]
-
-        return True
-
-    def set_final_values(self):
-        """ Sets any value that may be final"""
-        for row in range(0, 9):
-            for col in range(0, 9):
-                if self.final_values[row][col] in self.final_possible_values:
-                    self.set_value(row, col)
-
-    def is_only_possibility_in_row(self, row):
-        """Sets possible value if unique among a row"""
-        # possible value in the row
-        for col in range(0, 9):
-            # If this is already a final value, skip
-            if self.final_values[row][col] in self.final_possible_values:
-                continue
-            # TODO: Would it be faster to find the way to reduce this with an and? So its only checking actual possible values
-            for value in self.final_possible_values:
-                is_only_possible_value = True
-                # If not a possible value for this cell, move on to next possible value
-                if self.final_values[row][col] & value == 0:
-                    continue
-
-                for other_col in range(0, 9):
-                    # don't check against self
-                    if col == other_col:
-                        continue
-                    # If the value is possible for another cell, then it isn't the only possible value
-                    if self.final_values[row][other_col] & value != 0:
-                        is_only_possible_value = False
-                        break
-
-                if is_only_possible_value:
-                    # set the value
-                    self.final_values[row][col] = value
-                    self.set_value(row, col)
-                    # break out of loop
-                    break
-
-    def is_only_possibility_in_col(self, col):
-        """Sets possible value if unique among a column"""
-        """Sets possible value if unique among a row"""
-        # possible value in the row
-        for row in range(0, 9):
-            # TODO: Would it be faster to find the way to reduce this with an and? So its only checking actual possible values
-            # If this is already a final value, skip
-            if self.final_values[row][col] in self.final_possible_values:
-                continue
-            for value in self.final_possible_values:
-                is_only_possible_value = True
-                # If not a possible value for this cell, move on to next possible value
-                if self.final_values[row][col] & value == 0:
-                    continue
-
-                for other_row in range(0, 9):
-                    # don't check against self
-                    if row == other_row:
-                        continue
-                    # If the value is possible for another cell, then it isn't the only possible value
-                    if self.final_values[other_row][col] & value != 0:
-                        is_only_possible_value = False
-                        break
-
-                if is_only_possible_value:
-                    # set the value
-                    self.final_values[row][col] = value
-                    self.set_value(row, col)
-                    # break out of loop
-                    break
-
-    def is_only_possibility_in_block(self, starting_cell_row, starting_cell_col):
-
-        # possible value in the row
-        """Checks if a possible value is unique in a 9x9 block"""
-        # starting_cell_row = (row // 3) * 3
-        # starting_cell_col = (col // 3) * 3
-        for block_row in range(starting_cell_row, starting_cell_row + 3):
-            for block_col in range(starting_cell_col, starting_cell_col + 3):
-                # If this is already a final value, skip
-                if self.final_values[block_row][block_col] in self.final_possible_values:
-                    continue
-                for value in self.final_possible_values:
-                    is_only_possible_value = True
-                    # If not a possible value for this cell, move on to next possible value
-                    if self.final_values[block_row][block_col] & value == 0:
-                        continue
-
-                    for other_row in range(starting_cell_row, starting_cell_row + 3):
-                        for other_col in range(starting_cell_col, starting_cell_col + 3):
-                            # don't check against self
-                            if block_row == other_row and block_col == other_col:
-                                continue
-                            # If the value is possible for another cell, then it isn't the only possible value
-                            if self.final_values[other_row][other_col] & value != 0:
-                                is_only_possible_value = False
-                                break
-                        else:
-                            continue
-                        break
-
-                    if is_only_possible_value:
-                        # set the value
-                        self.final_values[block_row][block_col] = value
-                        self.set_value(block_row, block_col)
-                        # break out of loop
-                        break
-
-    def resolve_naked_x(self, x):
-        """Examines cells in rows, columns and blocks for hidden pairs. If a hidden pair is found, removes the
-        values of the hidden pair from the domains of relevant cells"""
-        # Rows first
-        for row in range(0, 9):
-            for col in range(0, 9):
-                # Ignore solved cells and cells with more than 2 values
-                if self.final_values[row][col] in self.final_possible_values or ones_lookup[
-                    self.final_values[row][col]] != x:
-                    continue
-                for next_col in range(col + 1, 9):
-                    # Ignore solved cells and cells with more than x values
-                    if self.final_values[row][next_col] in self.final_possible_values or ones_lookup[
-                        self.final_values[row][next_col]] != x:
-                        continue
-                    if self.final_values[row][col] == self.final_values[row][next_col]:
-                        for change_col in range(0, 9):
-                            # Ignore any cells which have the same values
-                            if self.final_values[row][col] == self.final_values[row][change_col]:
-                                continue
-                            # Remove the values from all other cells if they are there
-                            if self.final_values[row][col] & self.final_values[row][change_col] == self.final_values[row][col]:
-                                self.final_values[row][change_col] = self.final_values[row][col] ^ self.final_values[row][change_col]
-
-        #Then columns
-        for col in range(0, 9):
-            for row in range(0, 9):
-                # Ignore solved cells and cells with more than 2 values
-                if self.final_values[row][col] in self.final_possible_values or ones_lookup[
-                    self.final_values[row][col]] != x:
-                    continue
-                for next_row in range(row + 1, 9):
-                    # Ignore solved cells and cells with more than x values
-                    if self.final_values[next_row][col] in self.final_possible_values or ones_lookup[
-                        self.final_values[next_row][col]] != x:
-                        continue
-                    if self.final_values[row][col] == self.final_values[next_row][col]:
-                        for change_row in range(0, 9):
-                            # Ignore any cells which have the same values
-                            if self.final_values[row][col] == self.final_values[change_row][col]:
-                                continue
-                            # Remove the values from all other cells if they are there
-                            if self.final_values[row][col] & self.final_values[change_row][col] == self.final_values[row][col]:
-                                self.final_values[change_row][col] = self.final_values[row][col] ^ self.final_values[change_row][col]
-
-        # Then Blocks
-        for row in range(0, 9, 3):
-            for col in range(0, 9, 3):
-                for cell_row in range(row, row + 3):
-                    for cell_col in range(col, col + 3):
-                        if self.final_values[cell_row][cell_col] in self.final_possible_values or ones_lookup[
-                            self.final_values[cell_row][cell_col]] != x:
-                            continue
-                        for next_row in range(row, row + 3):
-                            for next_col in range(col, col + 3):
-                                # Ignore solved cells and cells that have too many possible values
-                                if self.final_values[next_row][col] in self.final_possible_values or ones_lookup[
-                                        self.final_values[cell_row][cell_col]] != x:
-                                    continue
-                                # Ignore the cell we are comparing
-                                if cell_row == next_row and cell_col == next_col:
-                                    continue
-
-                                if self.final_values[cell_row][cell_col] == self.final_values[next_row][next_col]:
-                                    for change_row in range(row, row + 3):
-                                        for change_col in range(col, col + 3):
-                                            # Ignore the pairs
-                                            if (change_row == cell_row and change_col == cell_col) or (
-                                                    change_row == next_row and change_col == next_col):
-                                                continue
-                                            # Otherwise, remove those possible values from cells if they are there
-                                            if self.final_values[cell_row][cell_col] & self.final_values[change_row][change_col] == \
-                                                    self.final_values[cell_row][cell_col]:
-                                                self.final_values[change_row][change_col] = self.final_values[cell_row][cell_col] ^ \
-                                                                                     self.final_values[change_row][change_col]
-
-    def apply_rules(self):
-
-        for row in range(0, 9):
-            self.is_only_possibility_in_row(row)
-        for col in range(0, 9):
-            self.is_only_possibility_in_col(col)
-        for starting_row in range(0, 9, 3):
-            for starting_col in range(0, 9, 3):
-                self.is_only_possibility_in_block(starting_row, starting_col)
-
-        # If the rules have updated the domains so that there is only possible value for anything, set it
-        self.resolve_naked_x(2)
-        #self.resolve_naked_x(3)
-        self.set_final_values()
-
-    def is_goal(self):
-        # The board is solved when there are no empty cells (0s)
-        for row in range(0, 9):
-            for col in range(0, 9):
-                if self.final_values[row][col] not in self.final_possible_values:
-                    return False
-        return True
-
-    def is_invalid(self):
-        # TODO: Add check for multiple value in row, col, block
-        # This state is invalid if any cell on the board has no possible values
-        for row in range(0, 9):
-            for col in range(0, 9):
-                if self.final_values[row][col] == 0:
-                    return True
-        return False
 
     def get_frequency_of_possible_values(self):
         """
@@ -426,14 +415,8 @@ class SudokuState:
 
         return sorted_values
 
-    def get_first_unsolved_cell(self):
-        for row in range(0, 9):
-            for col in range(0, 9):
-                if self.final_values[row][col] not in self.final_possible_values:
-                    return (row, col)
 
-
-def pick_next_cell(partial_state):
+def pick_next_cell(grid):
     """
     Chooses which cell to try, chooses the cell with the least number of possible values
     :param partial_state:
@@ -445,15 +428,15 @@ def pick_next_cell(partial_state):
 
     for row in range(0, 9):
         for col in range(0, 9):
-            if partial_state.final_values[row][col] == 0:
+            if grid[row][col] == 0:
                 empty_cells.append((row, col))
 
     # Find the empty cell with the least number of possible values and return it
     least_options_cell = empty_cells[0]
-    for cell in empty_cells:
-        if len(partial_state.possible_values[cell[0]][cell[1]]) <= len(
-                partial_state.possible_values[least_options_cell[0]][least_options_cell[1]]):
-            least_options_cell = cell
+    # for cell in empty_cells:
+    #     if len(partial_state.possible_values[cell[0]][cell[1]]) <= len(
+    #             partial_state.possible_values[least_options_cell[0]][least_options_cell[1]]):
+    #         least_options_cell = cell
 
     return least_options_cell
 
@@ -478,42 +461,42 @@ def order_values(partial_state, row, col):
     return final_values
 
 
-def depth_first_search(partial_state):
+def depth_first_search(grid):
     # First apply all rules to the given state until the same output is yielded
-    start_state = copy.deepcopy(partial_state)
-    next_state = copy.deepcopy(partial_state)
-    next_state.apply_rules()
+    start_grid = copy.deepcopy(grid)
+    next_grid = copy.deepcopy(grid)
+    next_grid = apply_rules(next_grid)
 
-    while not np.array_equal(next_state.final_values, start_state.final_values):
-        start_state = copy.deepcopy(next_state)
-        next_state.apply_rules()
+    while not np.array_equal(start_grid, next_grid):
+        start_grid = copy.deepcopy(next_grid)
+        next_grid = apply_rules(next_grid)
 
-    if next_state.is_goal():
-        return next_state
+    if is_goal(next_grid):
+        return next_grid
 
-    if next_state.is_invalid():
+    if is_invalid(next_grid):
         return None
 
     # cell = pick_next_cell(next_state)
-    cell = next_state.get_first_unsolved_cell()
+    cell = get_first_unsolved_cell(next_grid)
     row = cell[0]
     col = cell[1]
     # values = order_values(next_state, row, col)
     # values = next_state.possible_values[row][col]
 
-    for value in next_state.final_possible_values:
-        if next_state.final_values[row][col] & value == 0:
+    for value in final_possible_values:
+        if next_grid[row][col] & value == 0:
             continue
         # Virtual next step
-        attempt_state = copy.deepcopy(next_state)
-        attempt_state.final_values[row][col] = value
-        attempt_state.set_value(row, col)
-        if attempt_state.is_goal():
-            return attempt_state
+        attempt_grid = copy.deepcopy(next_grid)
+        attempt_grid[row][col] = value
+        set_value(attempt_grid, row, col)
+        if is_goal(attempt_grid):
+            return attempt_grid
 
-        if not attempt_state.is_invalid():
-            deep_state = depth_first_search(attempt_state)
-            if deep_state is not None and deep_state.is_goal():
+        if not is_invalid(attempt_grid):
+            deep_state = depth_first_search(attempt_grid)
+            if deep_state is not None and is_goal(deep_state):
                 return deep_state
 
     return None
@@ -532,21 +515,19 @@ def sudoku_solver(sudoku):
             It contains the solution, if there is one. If there is no solution, all array entries should be -1.
     """
 
-    partial_state = SudokuState(sudoku, False)
-    partial_state.initialise_sudoku_board()
+    raw_sudoku = copy.deepcopy(sudoku)
+    initialised_grid = initialise_sudoku_grid(raw_sudoku)
 
-    if partial_state.is_goal():
-        partial_state.decode_sudoku()
-        return partial_state
+    if is_goal(initialised_grid):
+        decode_sudoku(initialised_grid)
+        return initialised_grid
 
-    solution = depth_first_search(partial_state)
+    solution = depth_first_search(initialised_grid)
     if solution is None:
         return np.full((9, 9), -1)
-    solution.decode_sudoku()
+    solution = decode_sudoku(solution)
 
-    # TODO: replace with all -1s sudoku for fail state
-
-    return solution.final_values
+    return solution
 
 
 # Test Infra
@@ -562,8 +543,8 @@ def test_sudoku(number):
 
 # test_sudoku(14)
 
-# for num in range(0, 15):
-#     test_sudoku(num)
+for num in range(0, 15):
+    test_sudoku(num)
 
 # for num in range(0, 4):
 #     test_sudoku(num)
@@ -632,4 +613,5 @@ def test_mr_hard():
     else:
         print("Sudoku yielded a wrong result")
 
-test_mr_hard()
+
+# test_mr_hard()
