@@ -80,32 +80,12 @@ class SudokuState:
                 self.final_values[row][col] = self.encoding[self.initial_values[row][col]]
 
     def decode_sudoku(self):
+        #TODO: is this bit necessary?
         if self.not_valid:
             return
         for row in range(0, 9):
             for col in range(0, 9):
                 self.final_values[row][col] = decode(self.final_values[row][col])
-
-        # if value == 0:
-        #     return 511  # This is binary 111111111 and reflects all possible options
-        # if value == 1:
-        #     return 1
-        # if value == 2:
-        #     return 2
-        # if value == 3:
-        #     return 4
-        # if value == 4:
-        #     return 8
-        # if value == 5:
-        #     return 16
-        # if value == 6:
-        #     return 32
-        # if value == 7:
-        #     return 64
-        # if value == 8:
-        #     return 128
-        # if value == 9:
-        #     return 256
 
     def initialise_sudoku_board(self):
 
@@ -115,8 +95,7 @@ class SudokuState:
         # Next set final values when there is a final value already
         for row in range(0, 9):
             for col in range(0, 9):
-                value = self.final_values[row][col]
-                if value in self.final_possible_values:
+                if ones_lookup[self.final_values[row][col]] == 1:
                     self.set_value(row, col)
 
     def set_value(self, row, col):
@@ -178,7 +157,7 @@ class SudokuState:
         """ Sets any value that may be final"""
         for row in range(0, 9):
             for col in range(0, 9):
-                if self.final_values[row][col] in self.final_possible_values:
+                if ones_lookup[self.final_values[row][col]] == 1:
                     self.set_value(row, col)
 
     def is_only_possibility_in_row(self, row):
@@ -186,7 +165,7 @@ class SudokuState:
         # possible value in the row
         for col in range(0, 9):
             # If this is already a final value, skip
-            if self.final_values[row][col] in self.final_possible_values:
+            if ones_lookup[self.final_values[row][col]] == 1:
                 continue
             # TODO: Would it be faster to find the way to reduce this with an and? So its only checking actual possible values
             for value in self.final_possible_values:
@@ -218,7 +197,7 @@ class SudokuState:
         for row in range(0, 9):
             # TODO: Would it be faster to find the way to reduce this with an and? So its only checking actual possible values
             # If this is already a final value, skip
-            if self.final_values[row][col] in self.final_possible_values:
+            if ones_lookup[self.final_values[row][col]] == 1:
                 continue
             for value in self.final_possible_values:
                 is_only_possible_value = True
@@ -251,7 +230,7 @@ class SudokuState:
         for block_row in range(starting_cell_row, starting_cell_row + 3):
             for block_col in range(starting_cell_col, starting_cell_col + 3):
                 # If this is already a final value, skip
-                if self.final_values[block_row][block_col] in self.final_possible_values:
+                if ones_lookup[self.final_values[block_row][block_col]] == 1:
                     continue
                 for value in self.final_possible_values:
                     is_only_possible_value = True
@@ -286,12 +265,12 @@ class SudokuState:
         for row in range(0, 9):
             for col in range(0, 9):
                 # Ignore solved cells and cells with more than 2 values
-                if self.final_values[row][col] in self.final_possible_values or\
+                if ones_lookup[self.final_values[row][col]] == 1 or\
                         ones_lookup[self.final_values[row][col]] != x:
                     continue
                 for next_col in range(col + 1, 9):
                     # Ignore solved cells and cells with more than x values
-                    if self.final_values[row][next_col] in self.final_possible_values or\
+                    if ones_lookup[self.final_values[row][next_col]] == 1 or\
                             ones_lookup[self.final_values[row][next_col]] != x:
                         continue
                     if self.final_values[row][col] == self.final_values[row][next_col]:
@@ -309,12 +288,12 @@ class SudokuState:
         for col in range(0, 9):
             for row in range(0, 9):
                 # Ignore solved cells and cells with more than 2 values
-                if self.final_values[row][col] in self.final_possible_values or ones_lookup[
+                if ones_lookup[self.final_values[row][col]] == 1 or ones_lookup[
                     self.final_values[row][col]] != x:
                     continue
                 for next_row in range(row + 1, 9):
                     # Ignore solved cells and cells with more than x values
-                    if self.final_values[next_row][col] in self.final_possible_values or ones_lookup[
+                    if ones_lookup[self.final_values[next_row][col]] == 1 or ones_lookup[
                         self.final_values[next_row][col]] != x:
                         continue
                     if self.final_values[row][col] == self.final_values[next_row][col]:
@@ -333,13 +312,13 @@ class SudokuState:
             for col in range(0, 9, 3):
                 for cell_row in range(row, row + 3):
                     for cell_col in range(col, col + 3):
-                        if self.final_values[cell_row][cell_col] in self.final_possible_values or ones_lookup[
+                        if ones_lookup[self.final_values[cell_row][cell_col]] == 1 or ones_lookup[
                             self.final_values[cell_row][cell_col]] != x:
                             continue
                         for next_row in range(row, row + 3):
                             for next_col in range(col, col + 3):
                                 # Ignore solved cells and cells that have too many possible values
-                                if self.final_values[next_row][col] in self.final_possible_values or ones_lookup[
+                                if ones_lookup[self.final_values[next_row][col]] == 1 or ones_lookup[
                                     self.final_values[cell_row][cell_col]] != x:
                                     continue
                                 # Ignore the cell we are comparing
@@ -380,7 +359,7 @@ class SudokuState:
         # The board is solved when there are no empty cells (0s)
         for row in range(0, 9):
             for col in range(0, 9):
-                if self.final_values[row][col] not in self.final_possible_values:
+                if ones_lookup[self.final_values[row][col]] != 1:
                     return False
         return True
 
@@ -433,7 +412,7 @@ class SudokuState:
     def get_first_unsolved_cell(self):
         for row in range(0, 9):
             for col in range(0, 9):
-                if self.final_values[row][col] not in self.final_possible_values:
+                if ones_lookup[self.final_values[row][col]] != 1:
                     return (row, col)
 
     def pick_next_cell(self):
@@ -641,4 +620,4 @@ def test_mr_hard():
     else:
         print("Sudoku yielded a wrong result")
 
-# test_mr_hard()
+test_mr_hard()
