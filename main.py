@@ -4,7 +4,7 @@ import time
 
 # Load sudokus
 sudoku = np.load("data/hard_puzzle.npy")
-print("medium_puzzle.npy has been loaded into the variable sudoku")
+print("easy_puzzle.npy has been loaded into the variable sudoku")
 print(f"sudoku.shape: {sudoku.shape}, sudoku[0].shape: {sudoku[0].shape}, sudoku.dtype: {sudoku.dtype}")
 
 # Load solutions for demonstration
@@ -66,6 +66,7 @@ class SudokuState:
             self.initial_values = initial_values
             self.final_values = np.ndarray(shape=(9, 9),
                                            dtype=np.int16)  # larger data type is needed for bitwise operations
+
 
         # self.possible_values = np.full((9, 9), 511)  # 511 is binary representation of all values
         """returns numpy array of possible 'single' values if a posisble value cell contains
@@ -169,10 +170,11 @@ class SudokuState:
                 continue
             # TODO: Would it be faster to find the way to reduce this with an and? So its only checking actual possible values
             for value in self.final_possible_values:
-                is_only_possible_value = True
                 # If not a possible value for this cell, move on to next possible value
                 if self.final_values[row][col] & value == 0:
                     continue
+
+                is_only_possible_value = True
 
                 for other_col in range(0, 9):
                     # don't check against self
@@ -200,11 +202,11 @@ class SudokuState:
             if ones_lookup[self.final_values[row][col]] == 1:
                 continue
             for value in self.final_possible_values:
-                is_only_possible_value = True
+
                 # If not a possible value for this cell, move on to next possible value
                 if self.final_values[row][col] & value == 0:
                     continue
-
+                is_only_possible_value = True
                 for other_row in range(0, 9):
                     # don't check against self
                     if row == other_row:
@@ -364,12 +366,50 @@ class SudokuState:
         return True
 
     def is_invalid(self):
-        # TODO: Add check for multiple value in row, col, block
         # This state is invalid if any cell on the board has no possible values
         for row in range(0, 9):
             for col in range(0, 9):
                 if self.final_values[row][col] == 0:
                     return True
+        return False
+
+    def is_malformed(self):
+        # Check rows
+        for row in range(0,9):
+            for col in range(0,9):
+                if ones_lookup[self.final_values[row][col]] != 1:
+                    continue
+                for next_col in range(0,9):
+                    if col == next_col:
+                        continue
+                    if self.final_values[row][col] == self.final_values[row][next_col]:
+                        return True
+
+        # Check cols
+        for col in range(0, 9):
+            for row in range(0, 9):
+                if ones_lookup[self.final_values[row][col]] != 1:
+                    continue
+                for next_row in range(0, 9):
+                    if row == next_row:
+                        continue
+                    if self.final_values[row][col] == self.final_values[next_row][col]:
+                        return True
+
+        # Check blocks
+        for row in range(0, 9, 3):
+            for col in range(0, 9, 3):
+                for cell_row in range(row, row + 3):
+                    for cell_col in range(col, col + 3):
+                        if ones_lookup[self.final_values[cell_row][cell_col]] != 1:
+                            continue
+                        for next_row in range(row, row + 3):
+                            for next_col in range(col, col + 3):
+                                # Ignore the cell we are comparing
+                                if cell_row == next_row and cell_col == next_col:
+                                    continue
+                                if self.final_values[cell_row][cell_col] == self.final_values[next_row][next_col]:
+                                    return True
         return False
 
     # def get_frequency_of_possible_values(self):
@@ -428,7 +468,6 @@ class SudokuState:
         for row in range(0, 9):
             for col in range(0, 9):
                 # Ignore solved cells
-                # TODO: Is this the fastest way to check a cell is final?
                 num_options = ones_lookup[self.final_values[row][col]]
                 if num_options == 1:
                     continue
@@ -465,7 +504,7 @@ def depth_first_search(partial_state):
     next_state = copy.deepcopy(partial_state)
     next_state.apply_rules()
 
-    while not np.array_equal(next_state.final_values, start_state.final_values):
+    while not np.array_equal(next_state.final_values, start_state.final_values) :
         start_state = copy.deepcopy(next_state)
         next_state.apply_rules()
 
@@ -514,10 +553,12 @@ def sudoku_solver(sudoku):
 
     partial_state = SudokuState(sudoku, False)
     partial_state.initialise_sudoku_board()
+    if partial_state.is_malformed():
+        return np.full((9, 9), -1)
 
     if partial_state.is_goal():
         partial_state.decode_sudoku()
-        return partial_state
+        return partial_state.final_values
 
     solution = depth_first_search(partial_state)
     if solution is None:
@@ -532,6 +573,8 @@ def test_sudoku(number):
     start_time = time.process_time()
     result = sudoku_solver(sudoku[number])
     end_time = time.process_time()
+    print(result)
+    print(solutions[number])
     if np.array_equal(result, solutions[number]):
         print("Sudoku: ", number, " took ", end_time - start_time, " seconds to solve.")
     else:
@@ -620,4 +663,4 @@ def test_mr_hard():
     else:
         print("Sudoku yielded a wrong result")
 
-test_mr_hard()
+#test_mr_hard()
