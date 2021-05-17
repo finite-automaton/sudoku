@@ -93,13 +93,13 @@ class SudokuState:
         """ Transforms the object's final_values from integers to bit representations of its possible values """
         for row in range(0, 9):
             for col in range(0, 9):
-                self.final_values[row][col] = self.encoding[self.initial_values[row][col]]
+                self.final_values[row, col] = self.encoding[self.initial_values[row, col]]
 
     def decode_sudoku(self):
         """ Transforms the object's final_values from bit representations of its possible values to integers"""
         for row in range(0, 9):
             for col in range(0, 9):
-                self.final_values[row][col] = decode(self.final_values[row][col])
+                self.final_values[row, col] = decode(self.final_values[row, col])
 
     def initialise_sudoku_board(self):
         """ Intialises a sudoku board when it is the very first board past into the program, before
@@ -110,7 +110,7 @@ class SudokuState:
         # Next set final values when there is a single possible value
         for row in range(0, 9):
             for col in range(0, 9):
-                if ones_lookup[self.final_values[row][col]] == 1:
+                if ones_lookup[self.final_values[row, col]] == 1:
                     self.set_value(row, col)
 
     def set_value(self, row, col):
@@ -130,12 +130,12 @@ class SudokuState:
             if update_col == col:
                 continue
             # if the value is not a possible value of the cell, then an AND will yield 0, and we can ignore it
-            if self.final_values[row][update_col] & self.final_values[row][col] == 0:
+            if self.final_values[row, update_col] & self.final_values[row, col] == 0:
                 continue
             # otherwise, the value is in it and can be removed with a bitwise XOR
             # Note: this is the key benefit of using a bit representation for possible values as it is much
             # faster to perform a bitwise operation than to loop and check a list of possible values for a cell
-            self.final_values[row][update_col] = self.final_values[row][update_col] ^ self.final_values[row][col]
+            self.final_values[row, update_col] = self.final_values[row, update_col] ^ self.final_values[row, col]
 
         # Update cells in same column
         for update_row in range(0, 9):
@@ -143,10 +143,10 @@ class SudokuState:
             if update_row == row:
                 continue
             # if the value is not a possible value of the cell, then an AND will yield 0, and we can ignore it
-            if self.final_values[update_row][col] & self.final_values[row][col] == 0:
+            if self.final_values[update_row, col] & self.final_values[row, col] == 0:
                 continue
             # remove value with a bitwise XOR
-            self.final_values[update_row][col] = self.final_values[update_row][col] ^ self.final_values[row][col]
+            self.final_values[update_row, col] = self.final_values[update_row, col] ^ self.final_values[row, col]
 
         # now update cells in the same 9 x 9 block
         starting_cell_row = (row // 3) * 3
@@ -158,17 +158,17 @@ class SudokuState:
                     continue
 
                 # if the value is not a possible value of the cell, then an AND will yield 0, and we can ignore it
-                if self.final_values[block_row][block_col] & self.final_values[row][col] == 0:
+                if self.final_values[block_row, block_col] & self.final_values[row, col] == 0:
                     continue
                 # remove value with a bitwise XOR
-                self.final_values[block_row][block_col] = self.final_values[block_row][block_col] ^ \
-                                                          self.final_values[row][col]
+                self.final_values[block_row, block_col] = self.final_values[block_row, block_col] ^ \
+                                                          self.final_values[row, col]
 
     def set_final_values(self):
         """ Sets any value that may be final. This is used after applying rules and removing possible values."""
         for row in range(0, 9):
             for col in range(0, 9):
-                if ones_lookup[self.final_values[row][col]] == 1:
+                if ones_lookup[self.final_values[row, col]] == 1:
                     self.set_value(row, col)
 
     def is_only_possibility_in_row(self, row):
@@ -176,11 +176,11 @@ class SudokuState:
 
         for col in range(0, 9):
             # If this cell is already a final value, skip
-            if ones_lookup[self.final_values[row][col]] == 1:
+            if ones_lookup[self.final_values[row, col]] == 1:
                 continue
             for value in self.final_possible_values:
                 # If not a possible value for this cell, move on to next possible value
-                if self.final_values[row][col] & value == 0:
+                if self.final_values[row, col] & value == 0:
                     continue
 
                 # Use a boolean flag to remember if any other cell contains this value
@@ -192,13 +192,13 @@ class SudokuState:
                     if col == other_col:
                         continue
                     # If the value is possible for another cell, then it isn't the only possible value
-                    if self.final_values[row][other_col] & value != 0:
+                    if self.final_values[row, other_col] & value != 0:
                         is_only_possible_value = False
                         break
 
                 if is_only_possible_value:
                     # set the value
-                    self.final_values[row][col] = value
+                    self.final_values[row, col] = value
                     self.set_value(row, col)
                     # break out of loop
                     break
@@ -209,12 +209,12 @@ class SudokuState:
         for row in range(0, 9):
 
             # If this is already a final value, skip
-            if ones_lookup[self.final_values[row][col]] == 1:
+            if ones_lookup[self.final_values[row, col]] == 1:
                 continue
             for value in self.final_possible_values:
 
                 # If not a possible value for this cell, move on to next possible value
-                if self.final_values[row][col] & value == 0:
+                if self.final_values[row, col] & value == 0:
                     continue
 
                 # Use a boolean flag to remember if any other cell contains this value
@@ -224,13 +224,13 @@ class SudokuState:
                     if row == other_row:
                         continue
                     # If the value is possible for another cell, then it isn't the only possible value
-                    if self.final_values[other_row][col] & value != 0:
+                    if self.final_values[other_row, col] & value != 0:
                         is_only_possible_value = False
                         break
 
                 if is_only_possible_value:
                     # set the value
-                    self.final_values[row][col] = value
+                    self.final_values[row, col] = value
                     self.set_value(row, col)
                     # break out of loop
                     break
@@ -241,14 +241,14 @@ class SudokuState:
         for block_row in range(starting_cell_row, starting_cell_row + 3):
             for block_col in range(starting_cell_col, starting_cell_col + 3):
                 # If this is already a final value, skip
-                if ones_lookup[self.final_values[block_row][block_col]] == 1:
+                if ones_lookup[self.final_values[block_row, block_col]] == 1:
                     continue
                 for value in self.final_possible_values:
 
                     # Use a boolean flag to remember if any other cell contains this value
                     is_only_possible_value = True
                     # If not a possible value for this cell, move on to next possible value
-                    if self.final_values[block_row][block_col] & value == 0:
+                    if self.final_values[block_row, block_col] & value == 0:
                         continue
 
                     for other_row in range(starting_cell_row, starting_cell_row + 3):
@@ -257,7 +257,7 @@ class SudokuState:
                             if block_row == other_row and block_col == other_col:
                                 continue
                             # If the value is possible for another cell, then it isn't the only possible value
-                            if self.final_values[other_row][other_col] & value != 0:
+                            if self.final_values[other_row, other_col] & value != 0:
                                 is_only_possible_value = False
                                 break
                         else:
@@ -266,7 +266,7 @@ class SudokuState:
 
                     if is_only_possible_value:
                         # set the value
-                        self.final_values[block_row][block_col] = value
+                        self.final_values[block_row, block_col] = value
                         self.set_value(block_row, block_col)
                         # break out of loop
                         break
@@ -278,67 +278,66 @@ class SudokuState:
         for row in range(0, 9):
             for col in range(0, 9):
                 # Ignore solved cells and cells with more than 2 values
-                if ones_lookup[self.final_values[row][col]] == 1 or \
-                        ones_lookup[self.final_values[row][col]] != 2:
+                if ones_lookup[self.final_values[row, col]] == 1 or \
+                        ones_lookup[self.final_values[row, col]] != 2:
                     continue
                 for next_col in range(col + 1, 9):
                     # Ignore solved cells and cells with more than x values
-                    if ones_lookup[self.final_values[row][next_col]] == 1 or \
-                            ones_lookup[self.final_values[row][next_col]] != 2:
+                    if ones_lookup[self.final_values[row, next_col]] == 1 or \
+                            ones_lookup[self.final_values[row, next_col]] != 2:
                         continue
-                    if self.final_values[row][col] == self.final_values[row][next_col]:
+                    if self.final_values[row, col] == self.final_values[row, next_col]:
                         for change_col in range(0, 9):
                             # Ignore any cells which have the same values
-                            if self.final_values[row][col] == self.final_values[row][change_col]:
+                            if self.final_values[row, col] == self.final_values[row, change_col]:
                                 continue
                             # Remove the values from all other cells if they are there
-                            if self.final_values[row][col] & self.final_values[row][change_col] == \
-                                    self.final_values[row][col]:
-                                self.final_values[row][change_col] = self.final_values[row][col] ^ \
-                                                                     self.final_values[row][change_col]
+                            if self.final_values[row, col] & self.final_values[row, change_col] == \
+                                    self.final_values[row, col]:
+                                self.final_values[row, change_col] = self.final_values[row, col] ^ \
+                                                                     self.final_values[row, change_col]
 
         # Then columns
         for col in range(0, 9):
             for row in range(0, 9):
                 # Ignore solved cells and cells with more than 2 values
-                if ones_lookup[self.final_values[row][col]] == 1 or ones_lookup[
-                    self.final_values[row][col]] != 2:
+                if ones_lookup[self.final_values[row, col]] == 1 or ones_lookup[self.final_values[row, col]] != 2:
                     continue
                 for next_row in range(row + 1, 9):
                     # Ignore solved cells and cells with more than x values
-                    if ones_lookup[self.final_values[next_row][col]] == 1 or ones_lookup[
-                        self.final_values[next_row][col]] != 2:
+                    if ones_lookup[self.final_values[next_row, col]] == 1 or \
+                            ones_lookup[self.final_values[next_row, col]] != 2:
                         continue
-                    if self.final_values[row][col] == self.final_values[next_row][col]:
+                    if self.final_values[row, col] == self.final_values[next_row, col]:
                         for change_row in range(0, 9):
                             # Ignore any cells which have the same values
-                            if self.final_values[row][col] == self.final_values[change_row][col]:
+                            if self.final_values[row, col] == self.final_values[change_row, col]:
                                 continue
                             # Remove the values from all other cells if they are there
-                            if self.final_values[row][col] & self.final_values[change_row][col] == \
-                                    self.final_values[row][col]:
-                                self.final_values[change_row][col] = self.final_values[row][col] ^ \
-                                                                     self.final_values[change_row][col]
+                            if self.final_values[row, col] & self.final_values[change_row, col] == \
+                                    self.final_values[row, col]:
+                                self.final_values[change_row, col] = self.final_values[row, col] ^ \
+                                                                     self.final_values[change_row, col]
 
         # Then Blocks
         for row in range(0, 9, 3):
             for col in range(0, 9, 3):
                 for cell_row in range(row, row + 3):
                     for cell_col in range(col, col + 3):
-                        if ones_lookup[self.final_values[cell_row][cell_col]] == 1 or ones_lookup[
-                            self.final_values[cell_row][cell_col]] != 2:
+                        if ones_lookup[self.final_values[cell_row, cell_col]] == 1 or ones_lookup[
+                            self.final_values[cell_row, cell_col]] != 2:
                             continue
                         for next_row in range(row, row + 3):
                             for next_col in range(col, col + 3):
                                 # Ignore solved cells and cells that have too many possible values
-                                if ones_lookup[self.final_values[next_row][col]] == 1 or ones_lookup[
-                                    self.final_values[cell_row][cell_col]] != 2:
+                                if ones_lookup[self.final_values[next_row, col]] == 1 or ones_lookup[
+                                    self.final_values[cell_row, cell_col]] != 2:
                                     continue
                                 # Ignore the cell we are comparing
                                 if cell_row == next_row and cell_col == next_col:
                                     continue
 
-                                if self.final_values[cell_row][cell_col] == self.final_values[next_row][next_col]:
+                                if self.final_values[cell_row, cell_col] == self.final_values[next_row, next_col]:
                                     for change_row in range(row, row + 3):
                                         for change_col in range(col, col + 3):
                                             # Ignore the pairs
@@ -346,13 +345,13 @@ class SudokuState:
                                                     change_row == next_row and change_col == next_col):
                                                 continue
                                             # Otherwise, remove those possible values from cells if they are there
-                                            if self.final_values[cell_row][cell_col] & self.final_values[change_row][
+                                            if self.final_values[cell_row, cell_col] & self.final_values[change_row,
                                                 change_col] == \
-                                                    self.final_values[cell_row][cell_col]:
-                                                self.final_values[change_row][change_col] = self.final_values[cell_row][
+                                                    self.final_values[cell_row, cell_col]:
+                                                self.final_values[change_row, change_col] = self.final_values[cell_row,
                                                                                                 cell_col] ^ \
                                                                                             self.final_values[
-                                                                                                change_row][change_col]
+                                                                                                change_row, change_col]
 
     def apply_constraints(self):
         """Sequentially apply all constraints to the grid and then set any cells that have only one possible value"""
@@ -374,7 +373,7 @@ class SudokuState:
         # The board is solved when there are no cells with more than 1 possible value
         for row in range(0, 9):
             for col in range(0, 9):
-                if ones_lookup[self.final_values[row][col]] != 1:
+                if ones_lookup[self.final_values[row, col]] != 1:
                     return False
         return True
 
@@ -383,7 +382,7 @@ class SudokuState:
         # This state is invalid if any cell on the board has no possible values
         for row in range(0, 9):
             for col in range(0, 9):
-                if self.final_values[row][col] == 0:
+                if self.final_values[row, col] == 0:
                     return True
         return False
 
@@ -392,23 +391,23 @@ class SudokuState:
         # Check rows
         for row in range(0, 9):
             for col in range(0, 9):
-                if ones_lookup[self.final_values[row][col]] != 1:
+                if ones_lookup[self.final_values[row, col]] != 1:
                     continue
                 for next_col in range(0, 9):
                     if col == next_col:
                         continue
-                    if self.final_values[row][col] == self.final_values[row][next_col]:
+                    if self.final_values[row, col] == self.final_values[row, next_col]:
                         return True
 
         # Check cols
         for col in range(0, 9):
             for row in range(0, 9):
-                if ones_lookup[self.final_values[row][col]] != 1:
+                if ones_lookup[self.final_values[row, col]] != 1:
                     continue
                 for next_row in range(0, 9):
                     if row == next_row:
                         continue
-                    if self.final_values[row][col] == self.final_values[next_row][col]:
+                    if self.final_values[row, col] == self.final_values[next_row, col]:
                         return True
 
         # Check blocks
@@ -416,14 +415,14 @@ class SudokuState:
             for col in range(0, 9, 3):
                 for cell_row in range(row, row + 3):
                     for cell_col in range(col, col + 3):
-                        if ones_lookup[self.final_values[cell_row][cell_col]] != 1:
+                        if ones_lookup[self.final_values[cell_row, cell_col]] != 1:
                             continue
                         for next_row in range(row, row + 3):
                             for next_col in range(col, col + 3):
                                 # Ignore the cell we are comparing
                                 if cell_row == next_row and cell_col == next_col:
                                     continue
-                                if self.final_values[cell_row][cell_col] == self.final_values[next_row][next_col]:
+                                if self.final_values[cell_row, cell_col] == self.final_values[next_row, next_col]:
                                     return True
         return False
 
@@ -436,7 +435,7 @@ class SudokuState:
         for row in range(0, 9):
             for col in range(0, 9):
                 # Ignore solved cells
-                num_options = ones_lookup[self.final_values[row][col]]
+                num_options = ones_lookup[self.final_values[row, col]]
                 if num_options == 1:
                     continue
                 if num_options < min_options:
@@ -456,7 +455,7 @@ def depth_first_search(partial_state):
 
     next_state.apply_constraints()
 
-    while next_state.unsolved_cells > 80 and not np.array_equal(next_state.final_values, start_state.final_values):
+    while next_state.unsolved_cells > 70 and not np.array_equal(next_state.final_values, start_state.final_values):
         start_state = copy.deepcopy(next_state)
         next_state.apply_constraints()
 
@@ -471,11 +470,11 @@ def depth_first_search(partial_state):
 
     # Attempt a depth-first search on all possible values for that cell
     for value in next_state.final_possible_values:
-        if next_state.final_values[row][col] & value == 0:
+        if next_state.final_values[row, col] & value == 0:
             continue
         # Virtual next step
         attempt_state = copy.deepcopy(next_state)
-        attempt_state.final_values[row][col] = value
+        attempt_state.final_values[row, col] = value
         attempt_state.set_value(row, col)
         if attempt_state.is_goal():
             return attempt_state
@@ -637,4 +636,4 @@ def test_mr_hard():
     else:
         print("Sudoku yielded a wrong result")
 
-test_mr_hard()
+#test_mr_hard()
