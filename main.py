@@ -3,23 +3,30 @@ import numpy as np
 import time
 
 # Load sudokus
-sudoku = np.load("data/hard_puzzle.npy")
+sudoku = np.load("data/easy_puzzle.npy")
 print("easy_puzzle.npy has been loaded into the variable sudoku")
 print(f"sudoku.shape: {sudoku.shape}, sudoku[0].shape: {sudoku[0].shape}, sudoku.dtype: {sudoku.dtype}")
 
 # Load solutions for demonstration
-solutions = np.load("data/hard_solution.npy")
+solutions = np.load("data/easy_solution.npy")
 
 """My Code"""
 
 
 def ones_counter():
-    """provides a lookup list to know how many 1s are present in a binary representation of a number up to 511"""
-    """Used for naked pairs, triples etc"""
+    """Generates a lookup list to know how many 1s are present in a binary representation of a number up to 9 bits (511)
+        As possible values of sudoku cells are encoded as bits, this is useful for understanding how many possible
+        possible values remain for a cell. It is a very fast way to tell if a value is a final value as it will have
+        only 1 possible value if it is final. It is also used in identifying naked pairs as it allows us to tell that
+        two cells both have only 2 possible values."""
+
+    # Using an list, when we look up a number by referencing its value as the index, it returns the number of 1s in the
+    # binary equivalent of that number
     lookup_list = []
     for number in range(0, 512):
         binary_num = bin(number)
         count = 0
+        # We ignore the first two cars of a binary representation as they are not part of the binary number
         for char in range(2, len(binary_num)):
             if binary_num[char] == '1':
                 count += 1
@@ -27,10 +34,15 @@ def ones_counter():
     return lookup_list
 
 
+# Generate the lookup list
 ones_lookup = ones_counter()
 
 
 def decode(value):
+    """Given a binary encoding (an integer which has the value representing a sudoku value) returns the integer
+       which that encoding represents. E.g. the binary number 1000 is the same as the integer 8, this is used to
+       encode the value 4 because there is a 1 in the 4th position from the right"""
+
     if value == 0:
         return 0
     elif value == 1:
@@ -58,42 +70,41 @@ def decode(value):
 class SudokuState:
 
     def __init__(self, initial_values, not_valid):
-        # Invalid sudoku setting
+        # Invalid sudoku setting. This is necessary for handling the setting of invalid grids in recursion
         self.not_valid = not_valid
         if not_valid:
             self.final_values = initial_values
         else:
             self.initial_values = initial_values
-            self.final_values = np.ndarray(shape=(9, 9),
-                                           dtype=np.int16)  # larger data type is needed for bitwise operations
+            # We want each cell to represent 9 possible values as bits, so we need to use int16 as the provided
+            # sudokus use int8, which only have 8 bits and not enough for this encoding.
+            self.final_values = np.ndarray(shape=(9, 9), dtype=np.int16)
 
-
-        # self.possible_values = np.full((9, 9), 511)  # 511 is binary representation of all values
-        """returns numpy array of possible 'single' values if a posisble value cell contains
-        one of these values then it is the only possible value for that cell"""
+        # These are the only 'valid' values a cell can have once it has been solved, but before it is decoded
         self.final_possible_values = np.array([1, 2, 4, 8, 16, 32, 64, 128, 256])
+        # this is a lookup table to encode an integer as a binary representation of its possible values
+        # 511 is used as it is the binary number 111111111 which represents all 9 values as being possible
         self.encoding = [511, 1, 2, 4, 8, 16, 32, 64, 128, 256]
 
     def encode_sudoku(self):
-
+        """ Transforms the object's final_values from integers to bit representations of its possible values """
         for row in range(0, 9):
             for col in range(0, 9):
                 self.final_values[row][col] = self.encoding[self.initial_values[row][col]]
 
     def decode_sudoku(self):
-        #TODO: is this bit necessary?
-        if self.not_valid:
-            return
+        """ Transforms the object's final_values from bit representations of its possible values to integers"""
         for row in range(0, 9):
             for col in range(0, 9):
                 self.final_values[row][col] = decode(self.final_values[row][col])
 
     def initialise_sudoku_board(self):
-
+        """ Intialises a sudoku board when it is the very first board past into the program, before
+            any recursion"""
         # First encode the final values into binary representations
         self.encode_sudoku()
 
-        # Next set final values when there is a final value already
+        # Next set final values when there is a single possible value
         for row in range(0, 9):
             for col in range(0, 9):
                 if ones_lookup[self.final_values[row][col]] == 1:
@@ -101,21 +112,9 @@ class SudokuState:
 
     def set_value(self, row, col):
         """ Given a cell, removes the value of this cell from the possible values of other cells
-        in the same row, column and block. Works when the 'set_value' cell has only 1 value!!"""
+        in the same row, column and block."""
 
-        # This won't work anymore!
-        # Throw error if trying to set a value that is not possible
-        # if value not in self.possible_values[row][col]:
-        #     for x in self.possible_values:
-        #         print(x)
-        #     raise ValueError(f"{value} is not a valid choice for cell {row, col}")
-
-        # Reduce the possible value to the final value for the target cell
-        # Set the final value
-
-        # remove the value from all other relevant cell's possible values
-        # start with cells in the same row
-
+        # Update cells in the same row
         for update_col in range(0, 9):
             # ignore target cell
             if update_col == col:
@@ -124,9 +123,11 @@ class SudokuState:
             if self.final_values[row][update_col] & self.final_values[row][col] == 0:
                 continue
             # otherwise, the value is in it and can be removed with a bitwise XOR
+            # Note: this is the key benefit of using a bit representation for possible values as it is much
+            # faster to perform a bitwise operation than to loop and check a list of possible values for a cell
             self.final_values[row][update_col] = self.final_values[row][update_col] ^ self.final_values[row][col]
 
-        # now update cells in same column
+        # Update cells in same column
         for update_row in range(0, 9):
             # ignore starting cell
             if update_row == row:
@@ -149,33 +150,35 @@ class SudokuState:
                 # if the value is not a possible value of the cell, then an AND will yield 0, and we can ignore it
                 if self.final_values[block_row][block_col] & self.final_values[row][col] == 0:
                     continue
+                # remove value with a bitwise XOR
                 self.final_values[block_row][block_col] = self.final_values[block_row][block_col] ^ \
                                                           self.final_values[row][col]
 
         return True
 
     def set_final_values(self):
-        """ Sets any value that may be final"""
+        """ Sets any value that may be final. This is used after applying rules and removing possible values."""
         for row in range(0, 9):
             for col in range(0, 9):
                 if ones_lookup[self.final_values[row][col]] == 1:
                     self.set_value(row, col)
 
     def is_only_possibility_in_row(self, row):
-        """Sets possible value if unique among a row"""
-        # possible value in the row
+        """Sets possible value if it is the only instance of that possible value in a whole row"""
+
         for col in range(0, 9):
-            # If this is already a final value, skip
+            # If this cell is already a final value, skip
             if ones_lookup[self.final_values[row][col]] == 1:
                 continue
-            # TODO: Would it be faster to find the way to reduce this with an and? So its only checking actual possible values
             for value in self.final_possible_values:
                 # If not a possible value for this cell, move on to next possible value
                 if self.final_values[row][col] & value == 0:
                     continue
 
+                # Use a boolean flag to remember if any other cell contains this value
                 is_only_possible_value = True
 
+                # Check against all other values
                 for other_col in range(0, 9):
                     # don't check against self
                     if col == other_col:
@@ -194,10 +197,9 @@ class SudokuState:
 
     def is_only_possibility_in_col(self, col):
         """Sets possible value if unique among a column"""
-        """Sets possible value if unique among a row"""
-        # possible value in the row
+
         for row in range(0, 9):
-            # TODO: Would it be faster to find the way to reduce this with an and? So its only checking actual possible values
+
             # If this is already a final value, skip
             if ones_lookup[self.final_values[row][col]] == 1:
                 continue
@@ -206,6 +208,8 @@ class SudokuState:
                 # If not a possible value for this cell, move on to next possible value
                 if self.final_values[row][col] & value == 0:
                     continue
+
+                # Use a boolean flag to remember if any other cell contains this value
                 is_only_possible_value = True
                 for other_row in range(0, 9):
                     # don't check against self
@@ -224,17 +228,16 @@ class SudokuState:
                     break
 
     def is_only_possibility_in_block(self, starting_cell_row, starting_cell_col):
-
-        # possible value in the row
         """Checks if a possible value is unique in a 9x9 block"""
-        # starting_cell_row = (row // 3) * 3
-        # starting_cell_col = (col // 3) * 3
+
         for block_row in range(starting_cell_row, starting_cell_row + 3):
             for block_col in range(starting_cell_col, starting_cell_col + 3):
                 # If this is already a final value, skip
                 if ones_lookup[self.final_values[block_row][block_col]] == 1:
                     continue
                 for value in self.final_possible_values:
+
+                    # Use a boolean flag to remember if any other cell contains this value
                     is_only_possible_value = True
                     # If not a possible value for this cell, move on to next possible value
                     if self.final_values[block_row][block_col] & value == 0:
@@ -260,20 +263,20 @@ class SudokuState:
                         # break out of loop
                         break
 
-    def resolve_naked_x(self, x):
+    def resolve_naked_pairs(self):
         """Examines cells in rows, columns and blocks for hidden pairs. If a hidden pair is found, removes the
         values of the hidden pair from the domains of relevant cells"""
         # Rows first
         for row in range(0, 9):
             for col in range(0, 9):
                 # Ignore solved cells and cells with more than 2 values
-                if ones_lookup[self.final_values[row][col]] == 1 or\
-                        ones_lookup[self.final_values[row][col]] != x:
+                if ones_lookup[self.final_values[row][col]] == 1 or \
+                        ones_lookup[self.final_values[row][col]] != 2:
                     continue
                 for next_col in range(col + 1, 9):
                     # Ignore solved cells and cells with more than x values
-                    if ones_lookup[self.final_values[row][next_col]] == 1 or\
-                            ones_lookup[self.final_values[row][next_col]] != x:
+                    if ones_lookup[self.final_values[row][next_col]] == 1 or \
+                            ones_lookup[self.final_values[row][next_col]] != 2:
                         continue
                     if self.final_values[row][col] == self.final_values[row][next_col]:
                         for change_col in range(0, 9):
@@ -291,12 +294,12 @@ class SudokuState:
             for row in range(0, 9):
                 # Ignore solved cells and cells with more than 2 values
                 if ones_lookup[self.final_values[row][col]] == 1 or ones_lookup[
-                    self.final_values[row][col]] != x:
+                    self.final_values[row][col]] != 2:
                     continue
                 for next_row in range(row + 1, 9):
                     # Ignore solved cells and cells with more than x values
                     if ones_lookup[self.final_values[next_row][col]] == 1 or ones_lookup[
-                        self.final_values[next_row][col]] != x:
+                        self.final_values[next_row][col]] != 2:
                         continue
                     if self.final_values[row][col] == self.final_values[next_row][col]:
                         for change_row in range(0, 9):
@@ -315,13 +318,13 @@ class SudokuState:
                 for cell_row in range(row, row + 3):
                     for cell_col in range(col, col + 3):
                         if ones_lookup[self.final_values[cell_row][cell_col]] == 1 or ones_lookup[
-                            self.final_values[cell_row][cell_col]] != x:
+                            self.final_values[cell_row][cell_col]] != 2:
                             continue
                         for next_row in range(row, row + 3):
                             for next_col in range(col, col + 3):
                                 # Ignore solved cells and cells that have too many possible values
                                 if ones_lookup[self.final_values[next_row][col]] == 1 or ones_lookup[
-                                    self.final_values[cell_row][cell_col]] != x:
+                                    self.final_values[cell_row][cell_col]] != 2:
                                     continue
                                 # Ignore the cell we are comparing
                                 if cell_row == next_row and cell_col == next_col:
@@ -343,7 +346,8 @@ class SudokuState:
                                                                                             self.final_values[
                                                                                                 change_row][change_col]
 
-    def apply_rules(self):
+    def apply_constraints(self):
+        """Sequentially apply all constraints to the grid and then set any cells that have only one possible value"""
 
         for row in range(0, 9):
             self.is_only_possibility_in_row(row)
@@ -354,11 +358,12 @@ class SudokuState:
                 self.is_only_possibility_in_block(starting_row, starting_col)
 
         # If the rules have updated the domains so that there is only possible value for anything, set it
-        self.resolve_naked_x(2)
+        self.resolve_naked_pairs()
         self.set_final_values()
 
     def is_goal(self):
-        # The board is solved when there are no empty cells (0s)
+        """ Returns True if the board's final values represent a solved sudoku board, false otherwise """
+        # The board is solved when there are no cells with more than 1 possible value
         for row in range(0, 9):
             for col in range(0, 9):
                 if ones_lookup[self.final_values[row][col]] != 1:
@@ -366,6 +371,7 @@ class SudokuState:
         return True
 
     def is_invalid(self):
+        """ Returns True if the board is unsolveable or False otherwise """
         # This state is invalid if any cell on the board has no possible values
         for row in range(0, 9):
             for col in range(0, 9):
@@ -374,12 +380,13 @@ class SudokuState:
         return False
 
     def is_malformed(self):
+        """ Returns true if the board has the same final value in any row, column or block """
         # Check rows
-        for row in range(0,9):
-            for col in range(0,9):
+        for row in range(0, 9):
+            for col in range(0, 9):
                 if ones_lookup[self.final_values[row][col]] != 1:
                     continue
-                for next_col in range(0,9):
+                for next_col in range(0, 9):
                     if col == next_col:
                         continue
                     if self.final_values[row][col] == self.final_values[row][next_col]:
@@ -449,18 +456,8 @@ class SudokuState:
     #
     #     return sorted_values
 
-    def get_first_unsolved_cell(self):
-        for row in range(0, 9):
-            for col in range(0, 9):
-                if ones_lookup[self.final_values[row][col]] != 1:
-                    return (row, col)
-
     def pick_next_cell(self):
-        """
-        Chooses which cell to try, chooses the cell with the least number of possible values
-        :param partial_state:
-        :return:
-        """
+        """ Returns a tuple with a row and column representing the cell with the least number of possible values """
 
         # Find the empty cell with the least number of possible values and return it
         least_options_cell = (0, 0)
@@ -478,48 +475,32 @@ class SudokuState:
         return least_options_cell
 
 
-def order_values(partial_state, row, col):
-    """
-    Get values for the cell in the order we should try them in.
-    Currently random.
-    :param partial_state:
-    :param row:
-    :param col:
-    :return:
-    """
-    values = partial_state.get_possible_values(row, col)
-    value_frequencies = partial_state.get_frequency_of_possible_values()
-    final_values = value_frequencies.copy()
-
-    for value in value_frequencies:
-        if value not in values:
-            final_values.remove(value)
-
-    return final_values
-
-
 def depth_first_search(partial_state):
+    """ Applies a depth-first backtracking search on a partially solved sudoku grid. First it applies
+        rules exhaustively to the grid to resolve any values that can be solved by applying constraints"""
     # First apply all rules to the given state until the same output is yielded
+
     start_state = copy.deepcopy(partial_state)
     next_state = copy.deepcopy(partial_state)
-    next_state.apply_rules()
+    next_state.apply_constraints()
 
-    while not np.array_equal(next_state.final_values, start_state.final_values) :
+    while not np.array_equal(next_state.final_values, start_state.final_values):
         start_state = copy.deepcopy(next_state)
-        next_state.apply_rules()
+        next_state.apply_constraints()
 
+    # Check if applying the rules yielded the goal or an invalid solution
     if next_state.is_goal():
         return next_state
 
     if next_state.is_invalid():
         return None
 
+    # Otherwise, prepare for the next level of the depth search by choosing a cell to try
     cell = next_state.pick_next_cell()
     row = cell[0]
     col = cell[1]
-    # values = order_values(next_state, row, col)
-    # values = next_state.possible_values[row][col]
 
+    # Attempt a depth-first search on all possible values for that cell
     for value in next_state.final_possible_values:
         if next_state.final_values[row][col] & value == 0:
             continue
@@ -551,18 +532,26 @@ def sudoku_solver(sudoku):
             It contains the solution, if there is one. If there is no solution, all array entries should be -1.
     """
 
+    # First transform the grid into a SudokuState object, boolean representing that this is not (yet)
+    # considered to be an invalid grid
     partial_state = SudokuState(sudoku, False)
+    # Initialise the grid for the algorithm
     partial_state.initialise_sudoku_board()
+    # Check that the grid wasn't an invalid grid from the beginning
     if partial_state.is_malformed():
         return np.full((9, 9), -1)
 
+    # Check that the grid is not already solved
     if partial_state.is_goal():
         partial_state.decode_sudoku()
         return partial_state.final_values
 
+    # Perform the searching algorithm
     solution = depth_first_search(partial_state)
+    # If no solution is possible, return a grid of -1s
     if solution is None:
         return np.full((9, 9), -1)
+    # Otherwise return the decoded grid
     solution.decode_sudoku()
 
     return solution.final_values
@@ -663,4 +652,4 @@ def test_mr_hard():
     else:
         print("Sudoku yielded a wrong result")
 
-#test_mr_hard()
+# test_mr_hard()
