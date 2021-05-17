@@ -3,12 +3,12 @@ import numpy as np
 import time
 
 # Load sudokus
-sudoku = np.load("data/easy_puzzle.npy")
+sudoku = np.load("data/hard_puzzle.npy")
 print("easy_puzzle.npy has been loaded into the variable sudoku")
 print(f"sudoku.shape: {sudoku.shape}, sudoku[0].shape: {sudoku[0].shape}, sudoku.dtype: {sudoku.dtype}")
 
 # Load solutions for demonstration
-solutions = np.load("data/easy_solution.npy")
+solutions = np.load("data/hard_solution.npy")
 
 """My Code"""
 
@@ -71,6 +71,7 @@ class SudokuState:
 
     def __init__(self, initial_values, not_valid):
         # Invalid sudoku setting. This is necessary for handling the setting of invalid grids in recursion
+        self.unsolved_cells = 81
         self.not_valid = not_valid
         if not_valid:
             self.final_values = initial_values
@@ -84,7 +85,9 @@ class SudokuState:
         self.final_possible_values = np.array([1, 2, 4, 8, 16, 32, 64, 128, 256])
         # this is a lookup table to encode an integer as a binary representation of its possible values
         # 511 is used as it is the binary number 111111111 which represents all 9 values as being possible
-        self.encoding = [511, 1, 2, 4, 8, 16, 32, 64, 128, 256]
+        self.encoding = np.array([511, 1, 2, 4, 8, 16, 32, 64, 128, 256])
+        self.solved_values = np.full((9,9), False)
+
 
     def encode_sudoku(self):
         """ Transforms the object's final_values from integers to bit representations of its possible values """
@@ -113,6 +116,13 @@ class SudokuState:
     def set_value(self, row, col):
         """ Given a cell, removes the value of this cell from the possible values of other cells
         in the same row, column and block."""
+
+        # Only set the value if it hasn't been set before
+        if self.solved_values[row, col]:
+            return
+
+        self.solved_values[row, col] = True
+        self.unsolved_cells -= 1
 
         # Update cells in the same row
         for update_col in range(0, 9):
@@ -153,8 +163,6 @@ class SudokuState:
                 # remove value with a bitwise XOR
                 self.final_values[block_row][block_col] = self.final_values[block_row][block_col] ^ \
                                                           self.final_values[row][col]
-
-        return True
 
     def set_final_values(self):
         """ Sets any value that may be final. This is used after applying rules and removing possible values."""
@@ -264,8 +272,8 @@ class SudokuState:
                         break
 
     def resolve_naked_pairs(self):
-        """Examines cells in rows, columns and blocks for hidden pairs. If a hidden pair is found, removes the
-        values of the hidden pair from the domains of relevant cells"""
+        """Examines cells in rows, columns and blocks for naked pairs. If a naked pair is found, removes the
+        values of the naked pair from the domains of relevant cells"""
         # Rows first
         for row in range(0, 9):
             for col in range(0, 9):
@@ -419,43 +427,6 @@ class SudokuState:
                                     return True
         return False
 
-    # def get_frequency_of_possible_values(self):
-    #     """
-    #     Returns a list of the least to most common outstanding possible values
-    #     The frequency is the first item in the returned tuple, for faster sorting.
-    #     :return:
-    #     """
-    #     frequency = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-    #
-    #     # Create a raw, unsorted list of all total occurrences of possible values
-    #     for row in range(0, 9):
-    #         for col in range(0, 9):
-    #             temp = np.array([self.final_values[row][col]], dtype=np.uint16)
-    #
-    #
-    #
-    #     # Create a dictionary which records the number of occurrences of each possible value
-    #     freq_dict = {}
-    #     for value in total_possible_values:
-    #         if value in freq_dict:
-    #             freq_dict[value] += 1
-    #         else:
-    #             freq_dict[value] = 1
-    #
-    #     freq_list = []
-    #     for key, value in freq_dict.items():
-    #         temp = (value, key)
-    #         freq_list.append(temp)
-    #
-    #     freq_list = sorted(freq_list)
-    #
-    #     sorted_values = []
-    #
-    #     for (value, key) in freq_list:
-    #         sorted_values.append(key)
-    #
-    #     return sorted_values
-
     def pick_next_cell(self):
         """ Returns a tuple with a row and column representing the cell with the least number of possible values """
 
@@ -482,18 +453,16 @@ def depth_first_search(partial_state):
 
     start_state = copy.deepcopy(partial_state)
     next_state = copy.deepcopy(partial_state)
+
     next_state.apply_constraints()
 
-    while not np.array_equal(next_state.final_values, start_state.final_values):
+    while next_state.unsolved_cells > 80 and not np.array_equal(next_state.final_values, start_state.final_values):
         start_state = copy.deepcopy(next_state)
         next_state.apply_constraints()
 
-    # Check if applying the rules yielded the goal or an invalid solution
+    # Check if applying the rules yielded the goal
     if next_state.is_goal():
         return next_state
-
-    if next_state.is_invalid():
-        return None
 
     # Otherwise, prepare for the next level of the depth search by choosing a cell to try
     cell = next_state.pick_next_cell()
@@ -511,7 +480,7 @@ def depth_first_search(partial_state):
         if attempt_state.is_goal():
             return attempt_state
 
-        if not attempt_state.is_invalid():
+        if not attempt_state.is_invalid() and not attempt_state.is_malformed():
             deep_state = depth_first_search(attempt_state)
             if deep_state is not None and deep_state.is_goal():
                 return deep_state
@@ -574,19 +543,35 @@ def test_sudoku2(number):
     start_time = time.process_time()
     result = sudoku_solver(sudoku[number])
     end_time = time.process_time()
+    duration = end_time - start_time
     if np.array_equal(result, solutions[number]):
-        print(end_time - start_time)
+        print(duration)
+        return duration
     else:
         print("Sudoku: ", number, " yielded a wrong result")
 
+        print(sudoku[number])
+        print(solutions[number])
+        print(result)
+        return duration
+
 
 # test_sudoku(14)
+def multirun(number):
+    total_times = 0
+    for x in range(0, number):
+        run_times = 0
+        for num in range(0, 15):
+            run_times += test_sudoku2(num)
+        total_times += run_times
+    print(total_times / number)
 
+
+#multirun(5)
+total = 0
 for num in range(0, 15):
-    test_sudoku2(num)
-
-# for num in range(0, 4):
-#     test_sudoku(num)
+    total += test_sudoku2(num)
+print("Total: ", total)
 
 # Testing
 # test_row = np.array([
@@ -652,4 +637,4 @@ def test_mr_hard():
     else:
         print("Sudoku yielded a wrong result")
 
-# test_mr_hard()
+test_mr_hard()
